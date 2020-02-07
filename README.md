@@ -12,7 +12,6 @@ Copyright (c) 2020 by Gadi Cohen.  Released under the MIT License.
 * Subscribes to datasets, realtime support.
 * Optimistic updates for free.
 
-
 --
 
 * idb must store JSON compliant data (e.g. no Dates)
