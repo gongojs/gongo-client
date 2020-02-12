@@ -14,5 +14,6 @@ Copyright (c) 2020 by Gadi Cohen.  Released under the MIT License.
 
 --
 
-* idb must store JSON compliant data (e.g. no Dates)
-* pending stuff shuold be stored in idb too
+[ ] idb must store JSON compliant data (e.g. no Dates)
+[X] pending stuff shuold be stored in idb too
+[ ] persist should be subscription-level and not collection-level
