@@ -12,7 +12,24 @@ Copyright (c) 2020 by Gadi Cohen.  Released under the MIT License.
 * Subscribes to datasets, realtime support.
 * Optimistic updates for free.
 
---
+## QuickStart
+
+```js
+import db from 'gongo-client';
+import HTTPTransport from 'gongo-client/lib/transports/http';
+
+// Should match your gongo-server setup; this is the serverless poll transport.
+new HTTPTransport(db, 'http://localhost:3001/api/gongoPoll');
+
+const test = db.collection('test');
+db.subscribe('test');     // subscribe to "test" publication (see gongo-server)
+test.persist();           // persist this collection through browser restart
+
+window.db = db;           // so you can play in the browser console
+window.test = test;       // ditto
+```
+
+## TODO
 
 [ ] idb must store JSON compliant data (e.g. no Dates)
 [X] pending stuff shuold be stored in idb too
