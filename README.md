@@ -33,4 +33,6 @@ window.test = test;       // ditto
 
 [ ] idb must store JSON compliant data (e.g. no Dates)
 [X] pending stuff shuold be stored in idb too
-[ ] persist should be subscription-level and not collection-level
+[X] persist should be subscription-level and not collection-level
+[ ] webWorker implementation, with same API on main thread
+[ ] serviceWorker implementation with notifications
