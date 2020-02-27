@@ -10,7 +10,8 @@
   },
   "scripts": {
     "lint": "eslint",
-    "test": "jest"
+    "test": "jest",
+    "coverage": "jest --coverage"
   },
   "dependencies": {
     "fast-json-patch": "^3.0.0-1",
