@@ -14,6 +14,7 @@
     "coverage": "jest --coverage"
   },
   "dependencies": {
+    "debug": "^4.1.1",
     "fast-json-patch": "^3.0.0-1",
     "idb": "^5.0.1",
     "modifyjs": "^0.3.1",
