@@ -1,8 +1,20 @@
 {
   "name": "gongo-client",
   "version": "0.0.1",
-  "main": "lib/index.js",
+  "author": "Gadi Cohen <dragon@wastelands.net>",
+  "description": "DX focused in-browser database with offline and realtime",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongojs/gongo-client"
+  },
+  "main": "lib/index.js",
+  "keywords": [
+    "database",
+    "indexeddb",
+    "offline",
+    "minimongo"
+  ],
   "devDependencies": {
     "eslint": "^6.8.0",
     "fake-indexeddb": "^3.0.0",
