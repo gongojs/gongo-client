@@ -6,6 +6,10 @@ Copyright (c) 2020 by Gadi Cohen.  Released under the MIT License.
 
 ![npm](https://img.shields.io/npm/v/gongo-client) [![CircleCI](https://img.shields.io/circleci/build/github/gongojs/gongo-client)](https://circleci.com/gh/gongojs/gongo-client) [![coverage](https://img.shields.io/codecov/c/github/gongojs/gongo-client)](https://codecov.io/gh/gongojs/gongo-client) ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
 
+## Project
+
+Main project page https://github.com/gongojs/project
+
 ## Features
 
 * Client-side database.  Offline first.
