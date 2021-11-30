@@ -12,6 +12,7 @@ class Cursor {
 
 class Collection {
   find() { return new Cursor() }
+  persist() { }
 }
 
 class DB {
