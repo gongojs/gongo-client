@@ -19,9 +19,8 @@ class DB {
   collection(name) {
     return new Collection(name);
   }
+  subscribe() {}
 }
-
-console.log("ssr index");
 
 const db = new DB();
 module.exports = db;
