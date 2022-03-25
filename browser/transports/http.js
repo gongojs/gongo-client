@@ -127,7 +127,21 @@ class HTTPTransport {
     //   bodyUsed: true }
 
     //const json = await response.json();
-    const json = ARSON.decode(await response.text());
+
+    const text = await response.text();
+
+    let json;
+    try {
+      json = ARSON.decode(text);
+    } catch (error) {
+      // TODO, should we also setPolltimeout here, re-use code from below
+      // or better to stop polling after such an error.
+      console.error("Bad response from server");
+      console.error(error);
+      console.error(text);
+      this.timeout = null;
+      return;
+    }
 
     console.log('<- ', json);
 
