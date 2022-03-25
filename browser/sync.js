@@ -23,6 +23,7 @@ const sync = {
     // note for idx we DO want these
     delete output.__pendingSince;
     delete output.__pendingInsert;
+    delete output.__pendingBase;
     delete output.__idbWaiting;
 
     return output;
@@ -78,19 +79,11 @@ const sync = {
           } else if (doc.__pendingBase) {
             if (!out.update) out.update = [];
             
-            const oldDoc = Object.assign({}, doc.__pendingBase);
-            const id = sync.serialize(oldDoc)._id;
-            delete oldDoc._id;
-
-            const newDoc = Object.assign({}, doc);
-            delete newDoc._id;
-            delete newDoc.__pendingBase;
-            delete newDoc.__pendingSince;
-            delete newDoc.__idbWaiting;
-            
+            const oldDoc = sync.serialize(doc.__pendingBase);
+            const newDoc = sync.serialize(doc);
             
             out.update.push({
-              _id: id,
+              _id: oldDoc._id,
               patch: sync.jsonPatchCompare(oldDoc, newDoc)
             });
 

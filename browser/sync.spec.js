@@ -154,6 +154,24 @@ describe('sync', () => {
         ] } });
       });
 
+      it('correctly handles setting/replacing __objectIDs fields', () => {
+        const db = new Database(FakeDb, 'test');
+        const doc = { _id: 'id1', userId: "62332e3ac2b1241723c9ff94", a: 1, __ObjectIDs: ['userId'] };
+        const test = db.collection('test');
+        test._insert(doc);  // use _insert as if previously synced
+        test.update('id1', { $set: {...doc, a:2 } });
+
+        const cs = db.getChangeSet();
+        expect(cs).toEqual({ test: { update: [
+          {
+            _id: 'id1',
+            patch: [
+              { op: 'replace', path: '/a', value: 2 }
+            ]
+          }
+        ] } });
+      });
+
     });
 
     describe('deletes', () => {
