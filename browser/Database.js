@@ -42,8 +42,7 @@ class Database {
     this.collections = new Map();
     this.subscriptions = new Map();
     this.extensions = {};
-    this.queuedMethods = [];
-    this.waitingMethods = new Map();
+    this.queuedCalls = [];
 
     this.callbacks = {
       updatesFinished: [],
@@ -129,6 +128,59 @@ class Database {
       .filter(sub => includeInactive || sub.active !== false)
       .map(sub => sub.toObject())
   }
+  
+  async runSubscriptions() {
+    await Promise.all(this.getSubscriptions(false).map(async subReq => {
+      console.log({ subReq })
+      let results;
+      try {
+        results = await this.call("subscribe", subReq)
+      } catch (error) {
+        console.error(
+          "Skipping subscription error: " + JSON.stringify(subReq) + "\n" + (error.stack || `{$error.name}: ${error.message}`)
+        );
+        return;
+      }
+
+      console.log(results);      
+
+      const hash = Subscription.toHash(subReq.name, subReq.opts);
+      const sub = this.subscriptions.get(hash);
+      if (!sub.updatedAt)
+        sub.updatedAt = {};
+
+      //const slug =  sub.name, sub.opts
+      for (let pair of results) {
+        // pair ~= { coll, entries }
+
+        const coll = this.collection(pair.coll);
+        let collUpdatedAt = sub.updatedAt[pair.coll] || 0;
+        for (let entry of pair.entries) {
+          // entry ~= [ { _id: "", __updatedAt: "", blah: "str" }, {}, ... ]
+          //
+          stringifyObjectIDs(entry);
+
+          if (entry.__updatedAt > collUpdatedAt)
+            collUpdatedAt = entry.__updatedAt;
+
+          if (entry.__deleted)
+            coll._remove(entry._id);
+          else
+            coll._insert(entry);
+
+        }
+
+        sub.updatedAt[pair.coll] = collUpdatedAt;
+      }
+
+
+    }));
+
+    this.gongoStore._insertOrReplaceOne({
+      _id: "subscriptions",
+      subscriptions: this.getSubscriptions(true)
+    });
+  }
 
   populateSubscriptions() {
     const subStore = this.gongoStore.findOne("subscriptions");
@@ -165,74 +217,45 @@ class Database {
         }
       ];
    */
-  processSubResults(subs) {
-    for (let subObj of subs) {
-      // sub ~= { name, opts, results }
-      if (subObj.error) {
-        console.warn("Ignoring subscription", subObj);
-        continue;
-      }
-
-      const hash = Subscription.toHash(subObj.name, subObj.opts);
-      const sub = this.subscriptions.get(hash);
-      if (!sub.updatedAt)
-        sub.updatedAt = {};
-
-      //const slug =  sub.name, sub.opts
-      for (let pair of subObj.results) {
-        // pair ~= { coll, entries }
-
-        const coll = this.collection(pair.coll);
-        let collUpdatedAt = sub.updatedAt[pair.coll] || 0;
-        for (let entry of pair.entries) {
-          // entry ~= [ { _id: "", __updatedAt: "", blah: "str" }, {}, ... ]
-          //
-          stringifyObjectIDs(entry);
-
-          if (entry.__updatedAt > collUpdatedAt)
-            collUpdatedAt = entry.__updatedAt;
-
-          if (entry.__deleted)
-            coll._remove(entry._id);
-          else
-            coll._insert(entry);
-
-        }
-
-        sub.updatedAt[pair.coll] = collUpdatedAt;
-      }
-    }
-
-    this.gongoStore._insertOrReplaceOne({
-      _id: "subscriptions",
-      subscriptions: this.getSubscriptions(true)
-    });
-  }
 
   // --- methods ---
 
   call(name, opts) {
     return new Promise((resolve, reject) => {
-      const id = utils.randomId();
-      this.queuedMethods.push({ name, opts, id, resolve, reject });
+      // const id = utils.randomId();
+      this.queuedCalls.push({ name, opts, /*id,*/ resolve, reject });
       this._didUpdate(); // TODO different queue?
     });
   }
 
-  getQueuedMethods() {
-    const queued = this.queuedMethods;
-    const out = new Array(queued.length);
-    this.queuedMethods = [];
-
-    for (let i=0; i < queued.length; i++) {
-      const data = queued[i];
-      this.waitingMethods.set(data.id, data);
-      out[i] = { id: data.id, name: data.name, opts: data.opts };
+  getAndFlushQueuedCalls() {
+    const queued = this.queuedCalls;
+    this.queuedCalls = [];
+    return queued;
+  }
+  
+  async processCallResults(callResults, waitingCalls) {
+    if (callResults.length !== waitingCalls.length) {
+      console.error({ callResults, waitingResults })
+      throw new Error("processCallResults: callResults and waitingCalls had different lengths");
     }
-
-    return out;
+    
+    for (let i=0; i < callResults.length; i++) {
+      // const call = waitingCalls[i];
+      const result = callResults[i];
+      if (result.$result) {
+        // console.log(`> ${call.name}(${JSON.stringify(call.opts)})`);
+        // console.log(result.$result);
+        waitingCalls[i].resolve(result.$result);
+      } else if (result.$error) {
+        waitingCalls[i].reject(result.$error);
+      } else {
+        waitingCalls[i].reject(new Error("Invalid result: " + JSON.stringify(result)));
+      }
+    }
   }
 
+  /*
   processMethodsResults(methodsResults) {
     for (let result of methodsResults) {
       const data = this.waitingMethods.get(result.id);
@@ -244,6 +267,7 @@ class Database {
         data.resolve(result.result);
     }
   }
+  */
 
   // --- other ---
 

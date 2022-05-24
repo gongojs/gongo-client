@@ -88,68 +88,87 @@ class HTTPTransport {
   }
 
   async _poll() {
-    const changeSet = this.db.getChangeSet();
-    const subscriptions = this.db.getSubscriptions(false);
-    const methods = this.db.getQueuedMethods();
+    // const changeSet = this.db.getChangeSet();
+    // const subscriptions = this.db.getSubscriptions(false);
+    //const methods = this.db.getQueuedMethods();
+    
+    this.db.runSubscriptions();
+    
+    const calls = this.db.getAndFlushQueuedCalls();
+    
     const auth = this.db.auth;
 
-    const request = {};
+    const request = { $gongo: 2 };
+    /*
     if (changeSet)
       request.changeSet = changeSet;
     if (subscriptions.length)
       request.subscriptions = subscriptions;
     if (auth && auth.authInfoToSend)
       request.auth = auth.authInfoToSend();
-    if (methods.length)
-      request.methods = methods;
+    */
+    if (calls.length) {
+      request.calls = calls.map(row => [row.name, row.opts]);
 
-    console.log('-> ', request)
+      console.log('-> ', request.calls);
 
-    const response = await fetch(this.url, {
-      method: 'POST',
-      mode: 'cors', // no-cors, *cors, same-origin
-      cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-      //credentials: 'same-origin', // include, *same-origin, omit
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Gongo-Request-API': '1',
-        //'Content-Type': 'application/json'
-        // 'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      redirect: 'follow', // manual, *follow, error
-      referrerPolicy: 'no-referrer', // no-referrer, *client
-      body: ARSON.encode(request) // body data type must match "Content-Type" header
-    });
+      const response = await fetch(this.url, {
+        method: 'POST',
+        mode: 'cors', // no-cors, *cors, same-origin
+        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+        //credentials: 'same-origin', // include, *same-origin, omit
+        headers: {
+          //'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Type': 'application/json'
+          // 'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        redirect: 'follow', // manual, *follow, error
+        referrerPolicy: 'no-referrer', // no-referrer, *client
+        // body: ARSON.encode(request) // body data type must match "Content-Type" header
+        body: JSON.stringify(request),
+      });
 
-    //console.log(response);
-    // { type: 'cors', url: 'http://localhost:3001/api/gongoPoll', redirected: false,
-    //   status: 200, ok: true, statusText: "OK", headers: Headers, body: (...),
-    //   bodyUsed: true }
+      //console.log(response);
+      // { type: 'cors', url: 'http://localhost:3001/api/gongoPoll', redirected: false,
+      //   status: 200, ok: true, statusText: "OK", headers: Headers, body: (...),
+      //   bodyUsed: true }
 
-    //const json = await response.json();
+      const json = await response.json();
+      
+      if (!Array.isArray(json.calls)) {
+        console.log('<- ', json);
+        return;
+      }
+      
+      console.log('<- ', json.calls);
 
-    const text = await response.text();
+      this.db.processCallResults(json.calls, calls);
 
-    let json;
-    try {
-      json = ARSON.decode(text);
-    } catch (error) {
-      // TODO, should we also setPolltimeout here, re-use code from below
-      // or better to stop polling after such an error.
-      console.error("Bad response from server");
-      console.error(error);
-      console.error(text);
-      this.timeout = null;
-      return;
+      /*
+      const text = await response.text();
+
+      //let json;
+      try {
+        json = ARSON.decode(text);
+      } catch (error) {
+        // TODO, should we also setPolltimeout here, re-use code from below
+        // or better to stop polling after such an error.
+        console.error("Bad response from server");
+        console.error(error);
+        console.error(text);
+        this.timeout = null;
+        return;
+      }
+
+      if (json.subResults)
+        this.db.processSubResults(json.subResults);
+
+      if (json.methodsResults)
+        this.db.processMethodsResults(json.methodsResults);
+      */
+    } else {
+      console.log("Skip empty call");
     }
-
-    console.log('<- ', json);
-
-    if (json.subResults)
-      this.db.processSubResults(json.subResults);
-
-    if (json.methodsResults)
-      this.db.processMethodsResults(json.methodsResults);
 
     this.timeout = null;
 
