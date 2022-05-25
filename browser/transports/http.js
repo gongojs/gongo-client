@@ -92,6 +92,10 @@ class HTTPTransport {
     // const subscriptions = this.db.getSubscriptions(false);
     //const methods = this.db.getQueuedMethods();
     
+    const changeSet = this.db.getChangeSet();
+    if (changeSet)
+      this.db.call("changeSet", changeSet);
+      
     this.db.runSubscriptions();
     
     const calls = this.db.getAndFlushQueuedCalls();

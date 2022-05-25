@@ -236,20 +236,21 @@ class Database {
   
   async processCallResults(callResults, waitingCalls) {
     if (callResults.length !== waitingCalls.length) {
-      console.error({ callResults, waitingResults })
+      console.error({ callResults, waitingCalls })
       throw new Error("processCallResults: callResults and waitingCalls had different lengths");
     }
     
     for (let i=0; i < callResults.length; i++) {
       // const call = waitingCalls[i];
       const result = callResults[i];
-      if (result.$result) {
+      if (result.$result !== undefined) {
         // console.log(`> ${call.name}(${JSON.stringify(call.opts)})`);
         // console.log(result.$result);
         waitingCalls[i].resolve(result.$result);
-      } else if (result.$error) {
+      } else if (result.$error !== undefined) {
         waitingCalls[i].reject(result.$error);
-      } else {
+      } else if (!result.time) {
+        // TODO.  should be "else".  when we switch to ARSON, $result: undefined will work
         waitingCalls[i].reject(new Error("Invalid result: " + JSON.stringify(result)));
       }
     }
