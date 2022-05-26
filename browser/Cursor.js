@@ -1,11 +1,10 @@
-const sift = require('sift').default;
-const { debounce, debug: gongoDebug } = require('./utils');
-const debug = gongoDebug.extend('cursor');
+const sift = require("sift").default;
+const { debounce, debug: gongoDebug } = require("./utils");
+const debug = gongoDebug.extend("cursor");
 
 let cursorId = 0;
 
 class Cursor {
-
   constructor(collection, query = {}, options = {}) {
     this.collection = collection;
     this.changeStreams = [];
@@ -22,15 +21,14 @@ class Cursor {
   }
 
   slug() {
-    return this.collection.name + '#' + JSON.stringify(this._query);
+    return this.collection.name + "#" + JSON.stringify(this._query);
   }
 
   _resultsSync() {
-    if (this._queryResults)
-      return this._queryResults;
+    if (this._queryResults) return this._queryResults;
 
     let count = 0;
-    const out = this._queryResults = [];
+    const out = (this._queryResults = []);
     for (let pair of this.collection.documents)
       if (this.query(pair[1])) {
         out.push(pair[1]);
@@ -40,8 +38,7 @@ class Cursor {
           break;
       }
 
-    if (this._sortFunc)
-      out.sort(this._sortFunc);
+    if (this._sortFunc) out.sort(this._sortFunc);
 
     return out;
   }
@@ -66,13 +63,18 @@ class Cursor {
     let out = this._resultsSync();
 
     const cache = this._toArraySyncCache;
-    if (out === cache.queryResult &&
-        this._skip === cache.skip &&
-        this._limit === cache.limit)
+    if (
+      out === cache.queryResult &&
+      this._skip === cache.skip &&
+      this._limit === cache.limit
+    )
       return cache.out;
 
     if (this._skip || this._limit)
-      out = out.slice(this._skip || 0, this._limit ? (this._skip||0)+this._limit : undefined);
+      out = out.slice(
+        this._skip || 0,
+        this._limit ? (this._skip || 0) + this._limit : undefined
+      );
 
     this._toArraySyncCache = {
       queryResult: this._queryResults,
@@ -85,23 +87,31 @@ class Cursor {
 
   // https://mongodb.github.io/node-mongodb-native/api-generated/cursor.html#sort
   sort(keyOrList, direction) {
-    if (typeof keyOrList === 'string') {
-
+    if (typeof keyOrList === "string") {
       const key = keyOrList;
 
-      if (direction === 'asc' || direction === 'ascending' || direction === 1)
-        this._sortFunc = (a,b) => typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : a[key] - b[key];
-      else if (direction === 'desc' || direction === 'descending' || direction === -1)
-        this._sortFunc = (a,b) => typeof b[key] === 'string' ? b[key].localeCompare(a[key]) : b[key] - a[key];
+      if (direction === "asc" || direction === "ascending" || direction === 1)
+        this._sortFunc = (a, b) =>
+          typeof a[key] === "string"
+            ? a[key].localeCompare(b[key])
+            : a[key] - b[key];
+      else if (
+        direction === "desc" ||
+        direction === "descending" ||
+        direction === -1
+      )
+        this._sortFunc = (a, b) =>
+          typeof b[key] === "string"
+            ? b[key].localeCompare(a[key])
+            : b[key] - a[key];
       else
-        throw new Error("Invalid direction for sort(key, direction), expected "
-          + "'asc', 'ascending', 1, 'desc', 'descending', -1, but got "
-          + JSON.stringify(direction));
-
+        throw new Error(
+          "Invalid direction for sort(key, direction), expected " +
+            "'asc', 'ascending', 1, 'desc', 'descending', -1, but got " +
+            JSON.stringify(direction)
+        );
     } else {
-
       throw new Error("sort(array) not done yet" + JSON.stringify(keyOrList));
-
     }
 
     return this;
@@ -124,14 +134,13 @@ class Cursor {
     debug(`${context}: init`, this._query);
     if (opts.debounce === undefined) opts.debounce = 50;
 
-    const update = initial => {
-      if (!initial)
-        this._queryResults = null;
+    const update = (initial) => {
+      if (!initial) this._queryResults = null;
 
       const data = this.toArraySync();
-      this.lastDataIds = data.map(x => x._id);
+      this.lastDataIds = data.map((x) => x._id);
       return initial ? data : onUpdate(data);
-    }
+    };
 
     const data = update(true);
     const cs = this.collection.watch();
@@ -150,7 +159,7 @@ class Cursor {
 
         // If the change was for a doc that is already in our cursor, or
         // a new doc that matches our query
-        if (this.lastDataIds.includes(_id) || doc && this.query(doc)) {
+        if (this.lastDataIds.includes(_id) || (doc && this.query(doc))) {
           relevantChange = true;
           break;
         }
@@ -158,28 +167,34 @@ class Cursor {
 
       let length = changes.length;
       changes = [];
-      
+
       if (relevantChange) {
-        debug(`${context}: relevant change in ${length} updates, running onUpdate()`);
+        debug(
+          `${context}: relevant change in ${length} updates, running onUpdate()`
+        );
         update();
       } else {
-        debug(`${context}: no relevant changes in ${length} updates, skipping onUpdate()`);
+        debug(
+          `${context}: no relevant changes in ${length} updates, skipping onUpdate()`
+        );
       }
-    }
-    
-    const checkChanges = opts.debounce ? debounce(_checkChanges, opts.debounce) : _checkChanges;
+    };
+
+    const checkChanges = opts.debounce
+      ? debounce(_checkChanges, opts.debounce)
+      : _checkChanges;
 
     // TODO, what if population didn't affect our result set? optimize? compare arrays?
-    cs.on('populateEnd', update );
+    cs.on("populateEnd", update);
 
-    cs.on('change', change => {
+    cs.on("change", (change) => {
       //debug(`queued change ${this.collection.name}#${this._id}`, change);
       changes.push(change);
       checkChanges();
     });
-    
+
     return data;
-  }  
+  }
 
   /*
   watch_old(onUpdate, opts = {}) {
@@ -231,11 +246,12 @@ class Cursor {
   }
 
   unwatch() {
-    debug(`unwatch ${this.collection.name}#${this._id}, closing `
-      + `${this.changeStreams.length} changeStreams`);
-    this.changeStreams.forEach(cs => cs.close());
+    debug(
+      `unwatch ${this.collection.name}#${this._id}, closing ` +
+        `${this.changeStreams.length} changeStreams`
+    );
+    this.changeStreams.forEach((cs) => cs.close());
   }
-
 }
 
 module.exports = { __esModule: true, default: Cursor };

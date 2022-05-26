@@ -1,5 +1,4 @@
 class Subscription {
-
   constructor(db, name, opts) {
     this.db = db;
     this.name = name;
@@ -15,20 +14,19 @@ class Subscription {
   }
 
   hash() {
-    if (this._hash)
-      return this._hash;
+    if (this._hash) return this._hash;
 
-    return this._hash = Subscription.toHash(this.name, this.opts);
+    return (this._hash = Subscription.toHash(this.name, this.opts));
   }
 
   static toHash(name, opts) {
-    const parts = [ name ];
+    const parts = [name];
     if (opts) parts.push(opts);
     return JSON.stringify(parts);
   }
 
   static fromHash(hash) {
-    const [ name, opts ] = JSON.parse(hash);
+    const [name, opts] = JSON.parse(hash);
     return new Subscription(this, name, opts);
   }
 
@@ -42,11 +40,9 @@ class Subscription {
 
     this.db.gongoStore._insertOrReplaceOne({
       _id: "subscriptions",
-      subscriptions: this.db.getSubscriptions(true)
+      subscriptions: this.db.getSubscriptions(true),
     });
-
   }
-
 }
 
 module.exports = { __esModule: true, default: Subscription };

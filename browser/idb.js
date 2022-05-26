@@ -1,9 +1,8 @@
-const { openDB, deleteDB } = require('idb');
-const { debug: gongoDebug, debounce } = require('./utils');
-const debug = gongoDebug.extend('idb');
+const { openDB, deleteDB } = require("idb");
+const { debug: gongoDebug, debounce } = require("./utils");
+const debug = gongoDebug.extend("idb");
 
 class GongoIDB {
-
   constructor(db) {
     this.db = db;
     this.callbacks = {};
@@ -15,21 +14,22 @@ class GongoIDB {
   }
 
   on(event, callback) {
-    if (!this.callbacks[event])
-      this.callbacks[event] = [];
+    if (!this.callbacks[event]) this.callbacks[event] = [];
 
     this.callbacks[event].push(callback);
   }
 
   off(event, callback) {
-    this.callbacks[event] = this.callbacks[event].filter(cb => cb !== callback);
+    this.callbacks[event] = this.callbacks[event].filter(
+      (cb) => cb !== callback
+    );
   }
 
   exec(event) {
     if (this.callbacks[event])
-      this.callbacks[event].forEach(callback => {
+      this.callbacks[event].forEach((callback) => {
         try {
-          callback.call(this)
+          callback.call(this);
         } catch (e) {
           console.error(e);
         }
@@ -38,10 +38,10 @@ class GongoIDB {
 
   async deleteDB() {
     (await this.idbPromise).close();
-    return await deleteDB('gongo', {
+    return await deleteDB("gongo", {
       blocked() {
-        console.warn('deleteDB still blocked');
-      }
+        console.warn("deleteDB still blocked");
+      },
     });
   }
 
@@ -55,32 +55,42 @@ class GongoIDB {
         });
       });
     }
-    return this._putAllPromise = this._putAll().then(() => {
+    return (this._putAllPromise = this._putAll().then(() => {
       delete this._putAllPromise;
-    });
+    }));
   }
 
   async _putAll() {
     const localToSync = this.toSync;
     this.toSync = {};
 
-    let size = 0, i = 0;
-    for (let set of Object.values(localToSync))
-      size += set.size + 1; // +1 for tx.done
+    let size = 0,
+      i = 0;
+    for (let set of Object.values(localToSync)) size += set.size + 1; // +1 for tx.done
 
-    debug("Begin IDB syncs for " + (size - Object.keys(localToSync).length) + " docs");
+    debug(
+      "Begin IDB syncs for " +
+        (size - Object.keys(localToSync).length) +
+        " docs"
+    );
 
     const promises = new Array(size);
     const db = await this.idbPromise;
 
     for (let collName of Object.keys(localToSync)) {
-      debug("Start IDB sync transaction: " + collName + " (" + localToSync[collName].size + ")");
-      const tx = db.transaction(collName, 'readwrite');
+      debug(
+        "Start IDB sync transaction: " +
+          collName +
+          " (" +
+          localToSync[collName].size +
+          ")"
+      );
+      const tx = db.transaction(collName, "readwrite");
       for (let doc of localToSync[collName]) {
         try {
           promises[i++] = tx.store.put(doc, doc._id);
         } catch (e) {
-          console.error(`Error inserting into ${collName}: `, doc)
+          console.error(`Error inserting into ${collName}: `, doc);
           console.error(e);
           console.log("Skipping");
         }
@@ -94,7 +104,7 @@ class GongoIDB {
       promises[i++] = tx.done;
       tx.done.then(() => {
         debug("Finish IDB sync transaction: " + collName);
-        localToSync[collName].forEach(doc => delete doc.__idbWaiting);
+        localToSync[collName].forEach((doc) => delete doc.__idbWaiting);
         localToSync[collName] = [];
       });
     }
@@ -128,12 +138,13 @@ class GongoIDB {
 
   checkInit() {
     if (this.isOpen)
-      throw new Error("idb already open; TODO explain better when to call persist()");
+      throw new Error(
+        "idb already open; TODO explain better when to call persist()"
+      );
     else if (this.openTimeout) {
       clearTimeout(this.openTimeout);
-      this.openTimeout = setTimeout( () => this.open(), 0 );
-    } else
-      this.openTimeout = setTimeout( () => this.open(), 0 );
+      this.openTimeout = setTimeout(() => this.open(), 0);
+    } else this.openTimeout = setTimeout(() => this.open(), 0);
   }
 
   async open() {
@@ -142,28 +153,30 @@ class GongoIDB {
     this.isOpen = true;
 
     // idbDbVersion is (purposefully) undefined for initial open
-    const idbPromise = this.idbPromise = openDB('gongo', this.idbDbVersion, {
+    const idbPromise = (this.idbPromise = openDB("gongo", this.idbDbVersion, {
       upgrade: (idb, oldVersion, newVersion, transaction) => {
         debug('Upgrading IDB "gongo" database v' + this.idbDbVersion);
         //console.log(idb, oldVersion, newVersion, transaction);
 
         for (let name of idb.objectStoreNames)
-          if (!db.collections.has(name))
-            idb.deleteObjectStore(name);
+          if (!db.collections.has(name)) idb.deleteObjectStore(name);
 
         for (let [name] of db.collections)
-          if (!idb.objectStoreNames.contains(name))
-            idb.createObjectStore(name);
+          if (!idb.objectStoreNames.contains(name)) idb.createObjectStore(name);
       },
       blocked() {
-        throw new Error("Older version of the databse is blocking us from opening");
+        throw new Error(
+          "Older version of the databse is blocking us from opening"
+        );
       },
       async blocking() {
-        console.log("We're blocking a future version of the database from opening, closing...");
+        console.log(
+          "We're blocking a future version of the database from opening, closing..."
+        );
         (await idbPromise).close();
         console.log("Closed");
       },
-    });
+    }));
 
     let idb;
     try {
@@ -198,21 +211,21 @@ class GongoIDB {
     db.populated = false;
     for (let col of db.collections.values()) {
       col.populated = false;
-      debug('Begin populating from IndexedDB of ' + col.name);
-      col.csExec('populateStart');
+      debug("Begin populating from IndexedDB of " + col.name);
+      col.csExec("populateStart");
 
       const docs = await idb.getAll(col.name);
-      docs.forEach(doc => {
+      docs.forEach((doc) => {
         col.documents.set(doc._id, doc);
       });
 
       col.populated = true;
-      debug('Finished populating from IndexedDB of ' + col.name);
-      col.csExec('populateEnd');
+      debug("Finished populating from IndexedDB of " + col.name);
+      col.csExec("populateEnd");
     }
 
     db.populated = true;
-    this.exec('collectionsPopulated');
+    this.exec("collectionsPopulated");
 
     /*
 
@@ -259,7 +272,6 @@ class GongoIDB {
     return doc;
   }
   */
-
 }
 
 module.exports = { __esModule: true, default: GongoIDB };

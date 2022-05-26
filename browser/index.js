@@ -1,4 +1,4 @@
-const Database = require('./Database').default;
+const Database = require("./Database").default;
 
 const db = new Database();
 

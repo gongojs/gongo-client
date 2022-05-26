@@ -1,5 +1,4 @@
 {
-
   "env": {
     "browser": true,
     "es2017": true,
@@ -17,6 +16,5 @@
     "sourceType": "script"
   },
 
-  "extends": [ "eslint:recommended" ]
-
+  "extends": ["eslint:recommended"]
 }

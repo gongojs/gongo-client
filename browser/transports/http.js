@@ -1,25 +1,22 @@
-const ARSON = require('arson');
+const ARSON = require("arson");
 
 const ObjectID = require("bson-objectid");
 
 ARSON.registerType("ObjectID", {
-
   deconstruct: function (id) {
-    return id instanceof ObjectID && [ id.toHexString() ];
+    return id instanceof ObjectID && [id.toHexString()];
   },
 
   reconstruct: function (args) {
     return args && ObjectID.createFromHexString(args[0]);
-  }
-
+  },
 });
 
 class HTTPTransport {
-
   constructor(db, options = {}) {
     this.db = db;
 
-    this.url = options.url || (window.origin + '/api/gongoPoll');
+    this.url = options.url || window.origin + "/api/gongoPoll";
 
     this.options = {
       pollInterval: 2000, // false, // 2000,
@@ -27,12 +24,12 @@ class HTTPTransport {
       idleTimeout: 5000,
       debounceTime: 100,
       url: this.url,
-      ...options
+      ...options,
     };
 
-    db.on('updatesFinished', () => this.poll());
-    db.on('subscriptionsChanged', () => this.poll());
-    db.idb.on('collectionsPopulated', () => this.poll());
+    db.on("updatesFinished", () => this.poll());
+    db.on("subscriptionsChanged", () => this.poll());
+    db.idb.on("collectionsPopulated", () => this.poll());
 
     this.idleTimer = null;
     this.idleState = false;
@@ -49,10 +46,11 @@ class HTTPTransport {
       this.idleTimer = setTimeout(() => {
         this.idleState = true;
       }, this.options.idleTimeout);
-    }
+    };
 
-    ['mousemove','keydown','scroll']
-      .forEach(e => window.addEventListener(e, idleCheck));
+    ["mousemove", "keydown", "scroll"].forEach((e) =>
+      window.addEventListener(e, idleCheck)
+    );
     idleCheck();
   }
 
@@ -75,14 +73,14 @@ class HTTPTransport {
       clearTimeout(this._debounceTimeout);
     }
 
-    return this._promise = new Promise((resolve, reject) => {
+    return (this._promise = new Promise((resolve, reject) => {
       this._debounceTimeout = setTimeout(() => {
         this._poll().then(() => {
           this._promise = null;
           resolve();
         });
       }, this.options.debounceTime);
-    });
+    }));
 
     // return this._promise = this._poll().then(() => this._promise = null);
   }
@@ -91,15 +89,14 @@ class HTTPTransport {
     // const changeSet = this.db.getChangeSet();
     // const subscriptions = this.db.getSubscriptions(false);
     //const methods = this.db.getQueuedMethods();
-    
+
     const changeSet = this.db.getChangeSet();
-    if (changeSet)
-      this.db.call("changeSet", changeSet);
-      
+    if (changeSet) this.db.call("changeSet", changeSet);
+
     this.db.runSubscriptions();
-    
+
     const calls = this.db.getAndFlushQueuedCalls();
-    
+
     const auth = this.db.auth;
 
     const request = { $gongo: 2 };
@@ -112,7 +109,7 @@ class HTTPTransport {
       request.auth = auth.authInfoToSend();
     */
     if (calls.length) {
-      request.calls = calls.map(row => [row.name, row.opts]);
+      request.calls = calls.map((row) => [row.name, row.opts]);
 
       let responseTimeout = setTimeout(() => {
         console.warn("No response after 5s for: ", request.calls);
@@ -120,37 +117,37 @@ class HTTPTransport {
       }, 5000);
 
       const response = await fetch(this.url, {
-        method: 'POST',
-        mode: 'cors', // no-cors, *cors, same-origin
-        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+        method: "POST",
+        mode: "cors", // no-cors, *cors, same-origin
+        cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
         //credentials: 'same-origin', // include, *same-origin, omit
         headers: {
           //'Content-Type': 'text/plain; charset=utf-8',
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
           // 'Content-Type': 'application/x-www-form-urlencoded',
         },
-        redirect: 'follow', // manual, *follow, error
-        referrerPolicy: 'no-referrer', // no-referrer, *client
+        redirect: "follow", // manual, *follow, error
+        referrerPolicy: "no-referrer", // no-referrer, *client
         // body: ARSON.encode(request) // body data type must match "Content-Type" header
         body: JSON.stringify(request),
       });
-      
+
       clearTimeout(responseTimeout);
 
       //console.log(response);
       // { type: 'cors', url: 'http://localhost:3001/api/gongoPoll', redirected: false,
       //   status: 200, ok: true, statusText: "OK", headers: Headers, body: (...),
       //   bodyUsed: true }
-      //   
+      //
       // TODO, try...catch.  handle errors.
 
       const json = await response.json();
-      
+
       if (!Array.isArray(json.calls)) {
-        console.log('<- ', json);
+        console.log("<- ", json);
         return;
       }
-      
+
       // console.log('<- ', json.calls);
 
       this.db.processCallResults(json.calls, calls);
@@ -193,9 +190,6 @@ class HTTPTransport {
       }
     }
   }
-
-
-
 }
 
 module.exports = { __esModule: true, default: HTTPTransport };

@@ -1,6 +1,6 @@
 class Cursor {
   slug() {
-    return "X"
+    return "X";
   }
   toArraySync() {
     return [];
@@ -11,8 +11,10 @@ class Cursor {
 }
 
 class Collection {
-  find() { return new Cursor() }
-  persist() { }
+  find() {
+    return new Cursor();
+  }
+  persist() {}
 }
 
 class DB {

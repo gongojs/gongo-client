@@ -29,8 +29,7 @@
   "scripts": {
     "lint": "eslint",
     "test": "jest",
-    "coverage": "jest --coverage",
-    "prettier": "prettier -w ."
+    "coverage": "jest --coverage"
   },
   "dependencies": {
     "arson": "^0.2.6",

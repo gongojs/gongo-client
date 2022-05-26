@@ -1,7 +1,11 @@
 class ChangeStream {
-
   constructor() {
-    this.callbacks = { change: [], populateStart: [], populateEnd: [], close: [] };
+    this.callbacks = {
+      change: [],
+      populateStart: [],
+      populateEnd: [],
+      close: [],
+    };
   }
 
   on(event, callback) {
@@ -12,18 +16,17 @@ class ChangeStream {
     for (let callback of this.callbacks[type]) {
       try {
         callback(obj);
-      } catch(e) {
+      } catch (e) {
         console.error(e);
       }
     }
   }
 
   close() {
-    if (this._isClosed)
-      return;
+    if (this._isClosed) return;
 
     this._isClosed = true;
-    this.exec('close');
+    this.exec("close");
     delete this.callbacks;
   }
 

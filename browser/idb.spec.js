@@ -1,49 +1,45 @@
 require("fake-indexeddb/auto");
 const FDBFactory = require("fake-indexeddb/lib/FDBFactory");
-const { openDB, deleteDB } = require('idb');
-const GongoIDB = require('./idb').default;
-const Database = require('./Database').default;
+const { openDB, deleteDB } = require("idb");
+const GongoIDB = require("./idb").default;
+const Database = require("./Database").default;
 
-describe('GongoIDB', () => {
-
-  describe('events', () => {
-
-    it('off', () => {
+describe("GongoIDB", () => {
+  describe("events", () => {
+    it("off", () => {
       const idb = new GongoIDB();
       const callback = jest.fn();
-      idb.on('something', callback);
-      idb.off('something', callback);
-      idb.exec('something');
+      idb.on("something", callback);
+      idb.off("something", callback);
+      idb.exec("something");
       expect(callback).not.toHaveBeenCalled();
     });
 
-    describe('exec', () => {
-
-      it('catches errors', () => {
+    describe("exec", () => {
+      it("catches errors", () => {
         const idb = new GongoIDB();
-        const callback = () => { throw new Error('error') };
-        idb.on('something', callback);
-        
+        const callback = () => {
+          throw new Error("error");
+        };
+        idb.on("something", callback);
+
         const error = console.error;
         console.error = () => {};
-        idb.exec('something');
-        expect(() => idb.exec('something')).not.toThrow();
+        idb.exec("something");
+        expect(() => idb.exec("something")).not.toThrow();
         console.error = error;
       });
-
     });
-
   });
 
-  describe('checkInit', () => {
-
-    it('throws if already open', () => {
+  describe("checkInit", () => {
+    it("throws if already open", () => {
       const idb = new GongoIDB();
       idb.isOpen = true;
       expect(() => idb.checkInit()).toThrow();
     });
 
-    it('sets a timeout for open', () => {
+    it("sets a timeout for open", () => {
       const idb = new GongoIDB();
       idb.open = jest.fn();
 
@@ -54,7 +50,7 @@ describe('GongoIDB', () => {
       expect(idb.open).toHaveBeenCalled();
     });
 
-    it('clears an existing timeout and sets new one', () => {
+    it("clears an existing timeout and sets new one", () => {
       const idb = new GongoIDB();
       const open1 = jest.fn();
       const open2 = jest.fn();
@@ -69,7 +65,6 @@ describe('GongoIDB', () => {
       expect(open1).not.toHaveBeenCalled();
       expect(open2).toHaveBeenCalled();
     });
-
   });
 
   it('deleteDB calls deleteDB("gongo")', async () => {
@@ -77,34 +72,39 @@ describe('GongoIDB', () => {
     db.idb.open();
     await db.idb.idbPromise;
 
-    let gongo = Array.from(await indexedDB.databases()).filter(x => x.name === 'gongo')[0];
+    let gongo = Array.from(await indexedDB.databases()).filter(
+      (x) => x.name === "gongo"
+    )[0];
     expect(gongo).toBeTruthy();
     await db.idb.deleteDB();
-    gongo = Array.from(await indexedDB.databases()).filter(x => x.name === 'gongo')[0];
+    gongo = Array.from(await indexedDB.databases()).filter(
+      (x) => x.name === "gongo"
+    )[0];
     expect(gongo).toBeFalsy();
   });
 
-  describe('open', () => {
-
-    it('sets idbPromise that resolves to idb database', async () => {
+  describe("open", () => {
+    it("sets idbPromise that resolves to idb database", async () => {
       const db = new Database();
-      db.idb.open();  // don't await
+      db.idb.open(); // don't await
       const promise = db.idb.idbPromise;
       expect(promise).toBeInstanceOf(Promise);
       const result = await promise;
       expect(result.objectStoreNames).toBeTruthy();
-      expect(result.name).toBe('gongo');
+      expect(result.name).toBe("gongo");
     });
 
-    it('creates stores for new collections on first version', async () => {
+    it("creates stores for new collections on first version", async () => {
       indexedDB = new FDBFactory();
       const db = new Database();
-      db.collection('collection');
+      db.collection("collection");
       await db.idb.open();
-      expect((await db.idb.idbPromise).objectStoreNames).toContain('collection');
+      expect((await db.idb.idbPromise).objectStoreNames).toContain(
+        "collection"
+      );
     });
 
-    it('creates stores for new collections on upgrades', async () => {
+    it("creates stores for new collections on upgrades", async () => {
       let db;
       indexedDB = new FDBFactory();
 
@@ -115,25 +115,28 @@ describe('GongoIDB', () => {
 
       // database with 'collection' to be added
       db = new Database();
-      db.collection('collection');
+      db.collection("collection");
       await db.idb.open();
 
-      expect((await db.idb.idbPromise).objectStoreNames).toContain('collection');
+      expect((await db.idb.idbPromise).objectStoreNames).toContain(
+        "collection"
+      );
     });
 
-
-    it('deletes stores for removed collections on upgrades', async () => {
+    it("deletes stores for removed collections on upgrades", async () => {
       let db;
       indexedDB = new FDBFactory();
 
       db = new Database();
-      db.collection('collection');
+      db.collection("collection");
       await db.idb.open();
       await (await db.idb.idbPromise).close();
 
       db = new Database(); // new database without 'collection' collection
       await db.idb.open();
-      expect((await db.idb.idbPromise).objectStoreNames).not.toContain('collection');
+      expect((await db.idb.idbPromise).objectStoreNames).not.toContain(
+        "collection"
+      );
     });
 
     /*
@@ -147,26 +150,26 @@ describe('GongoIDB', () => {
     });
     */
 
-    describe('population', () => {
-
-      it('populates collections and execs collectionsPopulated', async () => {
+    describe("population", () => {
+      it("populates collections and execs collectionsPopulated", async () => {
         indexedDB = new FDBFactory();
-        const idb = await openDB('gongo', 1, {
-          upgrade(db) { db.createObjectStore('collection') }
+        const idb = await openDB("gongo", 1, {
+          upgrade(db) {
+            db.createObjectStore("collection");
+          },
         });
-        const origData = [ { _id: 'a' }, { _id: 'b' } ];
+        const origData = [{ _id: "a" }, { _id: "b" }];
 
-        for (let row of origData)
-          await idb.put('collection', row, row._id);
+        for (let row of origData) await idb.put("collection", row, row._id);
 
         (await idb).close();
 
         const db = new Database();
-        const col = db.collection('collection');
+        const col = db.collection("collection");
         col.persist();
 
-        await new Promise(resolve => {
-          db.idb.on('collectionsPopulated', resolve);
+        await new Promise((resolve) => {
+          db.idb.on("collectionsPopulated", resolve);
           clearTimeout(db.idb.openTimeout);
           db.idb.open();
         });
@@ -183,15 +186,11 @@ describe('GongoIDB', () => {
 
       });
        */
-
     });
-
   });
 
-  describe('syncing', () => {
-
-    describe('put', () => {
-
+  describe("syncing", () => {
+    describe("put", () => {
       /*
       it('debounces, calls', async () => {
         indexedDB = new FDBFactory();
@@ -221,18 +220,18 @@ describe('GongoIDB', () => {
       })
       */
 
-      it('debounces, calls (alt non-timer test)', async () => {
+      it("debounces, calls (alt non-timer test)", async () => {
         indexedDB = new FDBFactory();
 
         const db = new Database();
-        const coll = db.collection('collection');
+        const coll = db.collection("collection");
         coll.persist();
 
         await db.idb.open();
 
         const putAllSpy = jest.spyOn(db.idb, "putAll");
 
-        const doc = { _id: 'id' };
+        const doc = { _id: "id" };
         await coll._insert(doc);
         expect(putAllSpy).not.toHaveBeenCalled();
         expect(db.idb._putAllPromise).not.toBeDefined();
@@ -241,14 +240,11 @@ describe('GongoIDB', () => {
         await db.idb.putAll();
         expect(putAllSpy).toHaveBeenCalled();
         expect(doc.__idbWaiting).not.toBeDefined();
-      })
-
+      });
     });
-
   });
 
-  describe('convenience funcs', () => {
-
+  describe("convenience funcs", () => {
     /*
     it('put calls put correctly', async () => {
       const idb = new GongoIDB();
@@ -260,15 +256,13 @@ describe('GongoIDB', () => {
     });
     */
 
-    it('delete calls delete correctly', async () => {
+    it("delete calls delete correctly", async () => {
       const idb = new GongoIDB();
       const del = jest.fn();
-      const doc = { _id: 'id' };
+      const doc = { _id: "id" };
       idb.idbPromise = Promise.resolve({ delete: del });
-      await idb.delete('collection', doc._id);
-      expect(del).toHaveBeenCalledWith('collection', doc._id);
+      await idb.delete("collection", doc._id);
+      expect(del).toHaveBeenCalledWith("collection", doc._id);
     });
-
   });
-
 });
