@@ -124,14 +124,14 @@ class HTTPTransport {
         cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
         //credentials: 'same-origin', // include, *same-origin, omit
         headers: {
-          //'Content-Type': 'text/plain; charset=utf-8',
-          "Content-Type": "application/json",
+          "Content-Type": "text/plain; charset=utf-8",
+          // "Content-Type": "application/json",
           // 'Content-Type': 'application/x-www-form-urlencoded',
         },
         redirect: "follow", // manual, *follow, error
         referrerPolicy: "no-referrer", // no-referrer, *client
-        // body: ARSON.encode(request) // body data type must match "Content-Type" header
-        body: JSON.stringify(request),
+        body: ARSON.encode(request), // body data type must match "Content-Type" header
+        // body: JSON.stringify(request),
       });
 
       clearTimeout(responseTimeout);
@@ -148,8 +148,18 @@ class HTTPTransport {
       //
       // TODO, try...catch.  handle errors.
 
-      const json = await response.json();
+      //const json = await response.json();
+      const body = await response.text();
       clearTimeout(responseTimeout);
+
+      let json;
+      try {
+        json = ARSON.decode(body);
+      } catch (error) {
+        console.error("Error decoding: " + body);
+        console.error(error);
+        return;
+      }
 
       if (!Array.isArray(json.calls)) {
         console.log("<- ", json);
