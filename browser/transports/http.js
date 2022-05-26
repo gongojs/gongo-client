@@ -22,7 +22,7 @@ class HTTPTransport {
     this.url = options.url || (window.origin + '/api/gongoPoll');
 
     this.options = {
-      pollInterval: false, // 2000,
+      pollInterval: 2000, // false, // 2000,
       pollWhenIdle: false,
       idleTimeout: 5000,
       debounceTime: 100,
@@ -62,12 +62,12 @@ class HTTPTransport {
 
   poll() {
     if (!this.db.populated) {
-      console.log('Skip unpopulated poll');
+      // console.log('Skipping unpopulated poll (will be called again post-population)');
       return;
     }
 
     if (this._promise) {
-      console.log("Skipping poll while poll already in progress");
+      // console.log("Skipping poll while poll already in progress");
       return this._promise;
     }
 
@@ -114,7 +114,10 @@ class HTTPTransport {
     if (calls.length) {
       request.calls = calls.map(row => [row.name, row.opts]);
 
-      console.log('-> ', request.calls);
+      let responseTimeout = setTimeout(() => {
+        console.warn("No response after 5s for: ", request.calls);
+        // TODO, check again later, and set another poll timer.
+      }, 5000);
 
       const response = await fetch(this.url, {
         method: 'POST',
@@ -131,11 +134,15 @@ class HTTPTransport {
         // body: ARSON.encode(request) // body data type must match "Content-Type" header
         body: JSON.stringify(request),
       });
+      
+      clearTimeout(responseTimeout);
 
       //console.log(response);
       // { type: 'cors', url: 'http://localhost:3001/api/gongoPoll', redirected: false,
       //   status: 200, ok: true, statusText: "OK", headers: Headers, body: (...),
       //   bodyUsed: true }
+      //   
+      // TODO, try...catch.  handle errors.
 
       const json = await response.json();
       
@@ -144,7 +151,7 @@ class HTTPTransport {
         return;
       }
       
-      console.log('<- ', json.calls);
+      // console.log('<- ', json.calls);
 
       this.db.processCallResults(json.calls, calls);
 

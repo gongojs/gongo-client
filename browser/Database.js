@@ -131,7 +131,6 @@ class Database {
   
   async runSubscriptions() {
     await Promise.all(this.getSubscriptions(false).map(async subReq => {
-      console.log({ subReq })
       let results;
       try {
         results = await this.call("subscribe", subReq)
@@ -141,8 +140,6 @@ class Database {
         );
         return;
       }
-
-      console.log(results);      
 
       const hash = Subscription.toHash(subReq.name, subReq.opts);
       const sub = this.subscriptions.get(hash);
@@ -235,25 +232,35 @@ class Database {
   }
   
   async processCallResults(callResults, waitingCalls) {
+    const debugResults = { ok: [], fail: [], emptySubs: [] };
+    
     if (callResults.length !== waitingCalls.length) {
       console.error({ callResults, waitingCalls })
       throw new Error("processCallResults: callResults and waitingCalls had different lengths");
     }
     
+    // TODO, need to try/catch calls too, to avoid a failure breaking future polls
     for (let i=0; i < callResults.length; i++) {
-      // const call = waitingCalls[i];
+      const call = waitingCalls[i];
       const result = callResults[i];
       if (result.$result !== undefined) {
         // console.log(`> ${call.name}(${JSON.stringify(call.opts)})`);
         // console.log(result.$result);
-        waitingCalls[i].resolve(result.$result);
+        if (call.name === "subscribe" && Array.isArray(result.$result) && result.$result.length === 0)
+          debugResults.emptySubs.push({ method: call.name, opts: call.opts, result: result.$result, time: result.time });
+        else
+          debugResults.ok.push({ method: call.name, opts: call.opts, result: result.$result, time: result.time });
+        call.resolve(result.$result);
       } else if (result.$error !== undefined) {
-        waitingCalls[i].reject(result.$error);
+        call.reject(result.$error);
+        debugResults.ok.push({ method: call.name, opts: call.opts, error: result.$error, time: result.time });
       } else if (!result.time) {
         // TODO.  should be "else".  when we switch to ARSON, $result: undefined will work
-        waitingCalls[i].reject(new Error("Invalid result: " + JSON.stringify(result)));
+        call.reject(new Error("Invalid result: " + JSON.stringify(result)));
       }
     }
+    
+    console.log(debugResults);
   }
 
   /*
