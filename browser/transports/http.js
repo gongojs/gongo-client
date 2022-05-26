@@ -111,8 +111,10 @@ class HTTPTransport {
     if (calls.length) {
       request.calls = calls.map((row) => [row.name, row.opts]);
 
-      let responseTimeout = setTimeout(() => {
-        console.warn("No response after 5s for: ", request.calls);
+      let responseTimeout;
+
+      responseTimeout = setTimeout(() => {
+        console.warn("No headers received after 5s for: ", request.calls);
         // TODO, check again later, and set another poll timer.
       }, 5000);
 
@@ -133,6 +135,11 @@ class HTTPTransport {
       });
 
       clearTimeout(responseTimeout);
+      responseTimeout = setTimeout(() => {
+        console.warn("No body received after 10s for: ", request.calls);
+        // TODO, check again later, and set another poll timer.
+        // Once we implement fetchWithProgress, can check on the progress too.
+      }, 5000);
 
       //console.log(response);
       // { type: 'cors', url: 'http://localhost:3001/api/gongoPoll', redirected: false,
@@ -142,6 +149,7 @@ class HTTPTransport {
       // TODO, try...catch.  handle errors.
 
       const json = await response.json();
+      clearTimeout(responseTimeout);
 
       if (!Array.isArray(json.calls)) {
         console.log("<- ", json);
