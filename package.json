@@ -8,11 +8,11 @@
     "type": "git",
     "url": "https://github.com/gongojs/gongo-client"
   },
-  "main": "ssr/index.js",
+  "main": "lib/ssr/index.js",
   "browser": {
-    "ssr/index.js": "./browser/index.js",
-    "ssr/transports/http.js": "./browser/transports/http.js",
-    "ssr/auth/index.js": "./browser/auth/index.js"
+    "lib/ssr/index.js": "./lib/browser/index.js",
+    "lib/ssr/transports/http.js": "./lib/browser/transports/http.js",
+    "lib/ssr/auth/index.js": "./lib/browser/auth/index.js"
   },
   "keywords": [
     "database",
@@ -27,9 +27,12 @@
     "prettier": "^2.6.2"
   },
   "scripts": {
-    "lint": "eslint",
-    "test": "jest",
-    "coverage": "jest --coverage"
+    "lint": "eslint src",
+    "test": "jest src",
+    "coverage": "jest src --coverage",
+    "prettier": "prettier -w src",
+    "build": "tsc",
+    "prepublish": "build"
   },
   "dependencies": {
     "arson": "^0.2.6",
