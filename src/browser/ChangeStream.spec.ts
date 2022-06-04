@@ -1,4 +1,4 @@
-const ChangeStream = require("./ChangeStream").default;
+import ChangeStream from "./ChangeStream";
 
 describe("ChangeStream", () => {
   describe("close", () => {
@@ -23,8 +23,10 @@ describe("ChangeStream", () => {
   describe("isClosed", () => {
     it("returns _isClosed", () => {
       const cs = new ChangeStream();
-      cs._isClosed = "xxx";
-      expect(cs.isClosed()).toBe("xxx");
+      cs._isClosed = true;
+      expect(cs.isClosed()).toBe(true);
+      cs._isClosed = false;
+      expect(cs.isClosed()).toBe(false);
     });
   });
 });

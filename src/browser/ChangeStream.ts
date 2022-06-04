@@ -1,4 +1,9 @@
-class ChangeStream {
+export type ChangeStreamCallback = (obj?: unknown) => void;
+
+export default class ChangeStream {
+  _isClosed = false;
+  callbacks: Record<string, Array<ChangeStreamCallback>>;
+
   constructor() {
     this.callbacks = {
       change: [],
@@ -8,12 +13,12 @@ class ChangeStream {
     };
   }
 
-  on(event, callback) {
+  on(event: string, callback: ChangeStreamCallback) {
     this.callbacks[event].push(callback);
   }
 
-  exec(type, obj) {
-    for (let callback of this.callbacks[type]) {
+  exec(event: string, obj?: unknown) {
+    for (const callback of this.callbacks[event]) {
       try {
         callback(obj);
       } catch (e) {
@@ -27,12 +32,11 @@ class ChangeStream {
 
     this._isClosed = true;
     this.exec("close");
-    delete this.callbacks;
+
+    // delete this.callbacks;
   }
 
   isClosed() {
     return this._isClosed;
   }
 }
-
-module.exports = { __esModule: true, default: ChangeStream };
