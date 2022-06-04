@@ -12,6 +12,38 @@ ARSON.registerType("ObjectID", {
   },
 });
 
+// Adapted from https://fetch-progress.anthum.com/fetch-basic/supported-browser.js
+function fetchWithProgress(url, opts, onProgress) {
+  return fetch(url, opts).then((response) => {
+    // to access headers, server must send CORS header "Access-Control-Expose-Headers: content-encoding, content-length x-file-size"
+    // server must send custom x-file-size header if gzip or other content-encoding is used
+    const contentEncoding = response.headers.get("content-encoding");
+    const contentLength = response.headers.get(
+      contentEncoding ? "x-file-size" : "content-length"
+    );
+    if (contentLength === null) return response;
+
+    const total = parseInt(contentLength);
+    let loaded = 0;
+
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const reader = response.body.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            loaded += value.byteLength;
+            onProgress({ total, loaded, progress: loaded / total });
+            controller.enqueue(value);
+          }
+          controller.close();
+        },
+      })
+    );
+  });
+}
+
 class HTTPTransport {
   constructor(db, options = {}) {
     this.db = db;
@@ -118,21 +150,25 @@ class HTTPTransport {
         // TODO, check again later, and set another poll timer.
       }, 5000);
 
-      const response = await fetch(this.url, {
-        method: "POST",
-        mode: "cors", // no-cors, *cors, same-origin
-        cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-        //credentials: 'same-origin', // include, *same-origin, omit
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          // "Content-Type": "application/json",
-          // 'Content-Type': 'application/x-www-form-urlencoded',
+      const response = await fetchWithProgress(
+        this.url,
+        {
+          method: "POST",
+          mode: "cors", // no-cors, *cors, same-origin
+          cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+          //credentials: 'same-origin', // include, *same-origin, omit
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            // "Content-Type": "application/json",
+            // 'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          redirect: "follow", // manual, *follow, error
+          referrerPolicy: "no-referrer", // no-referrer, *client
+          body: ARSON.encode(request), // body data type must match "Content-Type" header
+          // body: JSON.stringify(request),
         },
-        redirect: "follow", // manual, *follow, error
-        referrerPolicy: "no-referrer", // no-referrer, *client
-        body: ARSON.encode(request), // body data type must match "Content-Type" header
-        // body: JSON.stringify(request),
-      });
+        console.log
+      );
 
       clearTimeout(responseTimeout);
       responseTimeout = setTimeout(() => {

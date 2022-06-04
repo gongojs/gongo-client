@@ -133,9 +133,9 @@ class Database {
   async runSubscriptions() {
     await Promise.all(
       this.getSubscriptions(false).map(async (subReq) => {
-        let results;
+        let pubRes;
         try {
-          results = await this.call("subscribe", subReq);
+          pubRes = await this.call("subscribe", subReq);
         } catch (error) {
           console.error(
             "Skipping subscription error: " +
@@ -145,6 +145,9 @@ class Database {
           );
           return;
         }
+
+        const results = pubRes.results;
+        if (!results) return;
 
         const hash = Subscription.toHash(subReq.name, subReq.opts);
         const sub = this.subscriptions.get(hash);
@@ -249,8 +252,7 @@ class Database {
         // console.log(result.$result);
         if (
           call.name === "subscribe" &&
-          Array.isArray(result.$result) &&
-          result.$result.length === 0
+          !(result.results || result.resultsMeta)
         )
           debugResults.emptySubs.push({
             method: call.name,
