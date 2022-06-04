@@ -1,16 +1,16 @@
-const utils = require("./utils");
+import * as utils from "./utils";
 
 describe("utils", () => {
   describe("log", () => {
     it("works with one string arg", () => {
-      const mockConsole = { log: jest.fn() };
+      const mockConsole = { log: jest.fn() } as unknown as typeof console;
       const log = new utils.Log("test", mockConsole);
       log.log("test");
       expect(mockConsole.log).toHaveBeenCalledWith("[test] test");
     });
 
     it("works with multiple args", () => {
-      const mockConsole = { log: jest.fn() };
+      const mockConsole = { log: jest.fn() } as unknown as typeof console;
       const log = new utils.Log("test", mockConsole);
       log.log({ a: 1 }, "str");
       expect(mockConsole.log).toHaveBeenCalledWith("[test]", { a: 1 }, "str");
@@ -20,7 +20,7 @@ describe("utils", () => {
   describe("debounce", () => {
     it("works", () => {
       const func = jest.fn();
-      const debounced = utils.debounce(func);
+      const debounced = utils.debounce(func, 0);
       jest.useFakeTimers();
 
       debounced();
@@ -37,7 +37,8 @@ describe("utils", () => {
     beforeAll(() => {
       if (!window.crypto)
         window.crypto = {
-          getRandomValues(arr) {
+          // @ts-expect-error: stub
+          getRandomValues(arr: number[]) {
             for (let i = 0; i < arr.length; i++)
               arr[i] = Math.floor(Math.random() * 100000);
           },
@@ -46,6 +47,7 @@ describe("utils", () => {
     });
 
     afterAll(() => {
+      // @ts-expect-error: stub
       if (window.crypto.isFake) delete window.crypto;
     });
 

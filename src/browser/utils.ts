@@ -1,4 +1,5 @@
-const debug = require("debug")("gongo");
+import _debug from "debug";
+const debug = _debug("gongo");
 
 const testEnv =
   typeof process === "object" && process.env && process.env.NODE_ENV === "test";
@@ -9,7 +10,15 @@ if (!testEnv)
   );
 
 class Log {
-  constructor(prefix, _console = console) {
+  prefix: string;
+  console: typeof console;
+  debug: typeof console.debug;
+  info: typeof console.info;
+  log: typeof console.log;
+  trace: typeof console.trace;
+  warn: typeof console.warn;
+
+  constructor(prefix: string, _console = console) {
     this.prefix = "[" + prefix + "]";
     this.console = _console;
 
@@ -20,20 +29,31 @@ class Log {
     this.warn = this._console.bind(this, "warn");
   }
 
-  _console(level, ...args) {
+  _console(
+    level: "debug" | "info" | "log" | "trace" | "warn",
+    ...args: unknown[]
+  ) {
     if (typeof args[0] === "string") args[0] = this.prefix + " " + args[0];
     else args.unshift(this.prefix);
     this.console[level].apply(console, args);
   }
 }
 
-function debounce(func, delay) {
-  let timeout;
-  return function () {
-    clearTimeout(timeout);
-    const args = arguments,
-      that = this;
-    timeout = setTimeout(() => func.apply(that, args), delay);
+// Inspired by https://gist.github.com/ca0v/73a31f57b397606c9813472f7493a940?permalink_comment_id=3728415#gistcomment-3728415
+function debounce<T extends (...args: unknown[]) => unknown>(
+  callback: T,
+  delay: number
+): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+  let timer: ReturnType<typeof setTimeout>;
+
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    return new Promise<ReturnType<T>>((resolve) => {
+      timer = setTimeout(() => {
+        const returnValue = callback(...args) as ReturnType<T>;
+        resolve(returnValue);
+      }, delay);
+    });
   };
 }
 
@@ -52,4 +72,4 @@ function randomId(charsCount = 17) {
 
 const log = new Log("gongo-client");
 
-module.exports = { Log, log, debounce, randomId, debug };
+export { Log, log, debounce, randomId, debug };
