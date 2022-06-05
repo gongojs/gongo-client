@@ -1,6 +1,13 @@
 import type Collection from "./Collection";
 
-export type ChangeStreamCallback = (obj?: unknown) => void;
+export interface ChangeStreamEvent {
+  [key: string]: unknown;
+  operationType: string;
+  ns: { db: string; coll: string };
+  documentKey: { _id: string };
+}
+
+export type ChangeStreamCallback = (obj?: ChangeStreamEvent) => void;
 
 export default class ChangeStream {
   collection?: Collection;
@@ -21,7 +28,7 @@ export default class ChangeStream {
     this.callbacks[event].push(callback);
   }
 
-  exec(event: string, obj?: unknown) {
+  exec(event: string, obj?: ChangeStreamEvent) {
     for (const callback of this.callbacks[event]) {
       try {
         callback(obj);
