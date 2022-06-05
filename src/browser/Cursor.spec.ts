@@ -1,5 +1,7 @@
-const Collection = require("./Collection").default;
-const Cursor = require("./Cursor").default;
+import Collection from "./Collection";
+import Cursor from "./Cursor";
+import type Database from "./Database";
+import type ChangeStream from "./ChangeStream";
 
 describe("Cursor", () => {
   const FakeDb = {
@@ -7,16 +9,17 @@ describe("Cursor", () => {
     getTime() {
       return Date.now();
     },
-  };
+  } as unknown as Database;
+
   const col = new Collection(FakeDb, "test");
   col._insert({ _id: "1", type: "apple" });
   col._insert({ _id: "2", type: "banana" });
 
   describe("constructor", () => {
     it("instantiates", () => {
-      const collection = {};
+      const collection = {} as unknown as Collection;
       const query = { a: 1 };
-      const options = { blah: 1 };
+      const options = {};
       const cursor = new Cursor(collection, query, options);
 
       expect(cursor.collection).toBe(collection);
@@ -26,14 +29,14 @@ describe("Cursor", () => {
     it("modifies query on options.includePendingDeletes", () => {
       let cursor;
 
-      cursor = new Cursor({}, { type: "banana" });
+      cursor = new Cursor({} as unknown as Collection, { type: "banana" });
       expect(cursor._query).toEqual({
         type: "banana",
         __pendingDelete: { $exists: false },
       });
 
       cursor = new Cursor(
-        {},
+        {} as unknown as Collection,
         { type: "banana" },
         { includePendingDeletes: true }
       );
@@ -45,7 +48,7 @@ describe("Cursor", () => {
 
   describe("slug", () => {
     it("returns name#queryJSON", () => {
-      const coll = { name: "test" };
+      const coll = { name: "test" } as unknown as Collection;
       const query = { a: 1 };
       const cursor = new Cursor(coll, query);
       expect(cursor.slug()).toBe(`${coll.name}#${JSON.stringify(query)}`);
@@ -54,8 +57,10 @@ describe("Cursor", () => {
 
   describe("_resultsSync()", () => {
     it("should return cache", () => {
+      const coll = { name: "test" } as unknown as Collection;
       const cache = {};
-      const cursor = new Cursor();
+      const cursor = new Cursor(coll);
+      // @ts-expect-error: stub
       cursor._queryResults = cache;
       expect(cursor._resultsSync()).toBe(cache);
     });
@@ -67,7 +72,7 @@ describe("Cursor", () => {
           [2, 2],
           [3, 3],
         ],
-      };
+      } as unknown as Collection;
       const cursor = new Cursor(coll).limit(2);
       const results = cursor._resultsSync();
       expect(results.length).toBe(2);
@@ -81,7 +86,7 @@ describe("Cursor", () => {
         [2, 2],
         [3, 3],
       ],
-    };
+    } as unknown as Collection;
 
     it("returns count of matching documents", () => {
       const cursor = new Cursor(coll);
@@ -116,6 +121,7 @@ describe("Cursor", () => {
 
     it("applies _sortFunc", () => {
       const cursor = col.find();
+      // @ts-expect-error: it's ok I promise
       cursor._sortFunc = (a, b) => b.type.localeCompare(a.type);
       expect(cursor.toArraySync()).toEqual([
         { _id: "2", type: "banana" },
@@ -142,54 +148,79 @@ describe("Cursor", () => {
   });
 
   describe("sort", () => {
+    const coll = {} as unknown as Collection;
+
     it("works for strKey asc", () => {
-      const cursor = new Cursor();
+      const cursor = new Cursor(coll);
 
       cursor.sort("a", "asc");
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(-1);
-      expect(cursor._sortFunc({ a: 1 }, { a: 1 })).toBe(0);
-      expect(cursor._sortFunc({ a: 2 }, { a: 1 })).toBe(1);
+      if (!cursor._sortFunc)
+        throw new Error("cursort.sort() did not create _sortFunc");
 
-      expect(cursor._sortFunc({ a: "a" }, { a: "b" })).toBe(-1);
-      expect(cursor._sortFunc({ a: "b" }, { a: "b" })).toBe(0);
-      expect(cursor._sortFunc({ a: "b" }, { a: "a" })).toBe(1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(-1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "1", a: 1 })).toBe(0);
+      expect(cursor._sortFunc({ _id: "2", a: 2 }, { _id: "1", a: 1 })).toBe(1);
+
+      expect(cursor._sortFunc({ _id: "a", a: "a" }, { _id: "b", a: "b" })).toBe(
+        -1
+      );
+      expect(cursor._sortFunc({ _id: "b", a: "b" }, { _id: "b", a: "b" })).toBe(
+        0
+      );
+      expect(cursor._sortFunc({ _id: "b", a: "b" }, { _id: "a", a: "a" })).toBe(
+        1
+      );
 
       cursor.sort("a", "ascending");
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(-1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(-1);
       cursor.sort("a", 1);
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(-1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(-1);
     });
 
     it("works for strKey desc", () => {
-      const cursor = new Cursor();
+      const cursor = new Cursor(coll);
 
       cursor.sort("a", "desc");
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(1);
-      expect(cursor._sortFunc({ a: 1 }, { a: 1 })).toBe(0);
-      expect(cursor._sortFunc({ a: 2 }, { a: 1 })).toBe(-1);
+      if (!cursor._sortFunc)
+        throw new Error("cursort.sort() did not create _sortFunc");
 
-      expect(cursor._sortFunc({ a: "a" }, { a: "b" })).toBe(1);
-      expect(cursor._sortFunc({ a: "b" }, { a: "b" })).toBe(0);
-      expect(cursor._sortFunc({ a: "b" }, { a: "a" })).toBe(-1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "1", a: 1 })).toBe(0);
+      expect(cursor._sortFunc({ _id: "2", a: 2 }, { _id: "1", a: 1 })).toBe(-1);
+
+      expect(cursor._sortFunc({ _id: "a", a: "a" }, { _id: "b", a: "b" })).toBe(
+        1
+      );
+      expect(cursor._sortFunc({ _id: "b", a: "b" }, { _id: "b", a: "b" })).toBe(
+        0
+      );
+      expect(cursor._sortFunc({ _id: "b", a: "b" }, { _id: "a", a: "a" })).toBe(
+        -1
+      );
 
       cursor.sort("a", "descending");
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(1);
       cursor.sort("a", -1);
-      expect(cursor._sortFunc({ a: 1 }, { a: 2 })).toBe(1);
+      expect(cursor._sortFunc({ _id: "1", a: 1 }, { _id: "2", a: 2 })).toBe(1);
     });
 
     it("throws on invalid direction given", () => {
-      const cursor = new Cursor();
+      const cursor = new Cursor(coll);
 
+      // @ts-expect-error: testing invalid input
       expect(() => cursor.sort("a", "weird")).toThrow();
+      // @ts-expect-error: testing invalid input
       expect(() => cursor.sort("a", {})).toThrow();
+      // @ts-expect-error: testing invalid input
       expect(() => cursor.sort("a", [])).toThrow();
     });
 
     it("throws on non-strKey (for now)", () => {
-      const cursor = new Cursor();
+      const cursor = new Cursor(coll);
 
+      // @ts-expect-error: testing invalid input
       expect(() => cursor.sort({})).toThrow();
+      // @ts-expect-error: testing invalid input
       expect(() => cursor.sort()).toThrow();
     });
   });
@@ -274,9 +305,9 @@ describe("Cursor", () => {
 
     describe("unwatch", () => {
       it("closes all cursor's changeStreams", () => {
-        const cursor = new Cursor({ name: "test" });
-        const cs1 = { close: jest.fn() };
-        const cs2 = { close: jest.fn() };
+        const cursor = new Cursor({ name: "test" } as unknown as Collection);
+        const cs1 = { close: jest.fn() } as unknown as ChangeStream;
+        const cs2 = { close: jest.fn() } as unknown as ChangeStream;
         cursor.changeStreams.push(cs1);
         cursor.changeStreams.push(cs2);
         cursor.unwatch();

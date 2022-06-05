@@ -1,11 +1,53 @@
-const sift = require("sift").default;
-const { debounce, debug: gongoDebug } = require("./utils");
+import sift from "sift";
+
+import { debounce, debug as gongoDebug } from "./utils";
+import type Collection from "./Collection";
+import type { Document, Query } from "./Collection";
+import type ChangeStream from "./ChangeStream";
+import type { ChangeStreamEvent } from "./ChangeStream";
+
 const debug = gongoDebug.extend("cursor");
 
 let cursorId = 0;
 
-class Cursor {
-  constructor(collection, query = {}, options = {}) {
+export interface CursorOptions {
+  includePendingDeletes?: boolean;
+}
+
+export interface WatchOptions {
+  debounce?: number | false;
+}
+
+export type SortFunction = (a: Document, b: Document) => number;
+
+export default class Cursor {
+  collection: Collection;
+  changeStreams: Array<ChangeStream>;
+  query: ReturnType<typeof sift>;
+
+  _id: number;
+  _queryResults: null | Array<Document>;
+  _query: Query;
+  _sortFunc?: SortFunction;
+  _needsCount?: boolean;
+  _skip?: number;
+  _limit?: number;
+  _lastDataIds: Array<string>;
+
+  _toArraySyncCache:
+    | Record<string, never>
+    | {
+        queryResult: null | Array<Document>;
+        skip?: number;
+        limit?: number;
+        out: Array<Document>;
+      };
+
+  constructor(
+    collection: Collection,
+    query: Query = {},
+    options: CursorOptions = {}
+  ) {
     this.collection = collection;
     this.changeStreams = [];
 
@@ -18,6 +60,7 @@ class Cursor {
 
     this._queryResults = null;
     this._toArraySyncCache = {};
+    this._lastDataIds = [];
   }
 
   slug() {
@@ -28,8 +71,8 @@ class Cursor {
     if (this._queryResults) return this._queryResults;
 
     let count = 0;
-    const out = (this._queryResults = []);
-    for (let pair of this.collection.documents)
+    const out = (this._queryResults = []) as Array<Document>;
+    for (const pair of this.collection.documents)
       if (this.query(pair[1])) {
         out.push(pair[1]);
         // if (!this._sortFunc && this._limit === 1)
@@ -54,7 +97,7 @@ class Cursor {
   }
 
   toArray() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       resolve(this.toArraySync());
     });
   }
@@ -86,15 +129,20 @@ class Cursor {
   }
 
   // https://mongodb.github.io/node-mongodb-native/api-generated/cursor.html#sort
-  sort(keyOrList, direction) {
+  sort(
+    keyOrList: string,
+    direction: "asc" | "ascending" | "desc" | "descending" | 1 | -1
+  ) {
     if (typeof keyOrList === "string") {
       const key = keyOrList;
 
       if (direction === "asc" || direction === "ascending" || direction === 1)
         this._sortFunc = (a, b) =>
           typeof a[key] === "string"
-            ? a[key].localeCompare(b[key])
-            : a[key] - b[key];
+            ? // @ts-expect-error: save for another day
+              a[key].localeCompare(b[key])
+            : // @ts-expect-error: save for another day
+              a[key] - b[key];
       else if (
         direction === "desc" ||
         direction === "descending" ||
@@ -102,8 +150,10 @@ class Cursor {
       )
         this._sortFunc = (a, b) =>
           typeof b[key] === "string"
-            ? b[key].localeCompare(a[key])
-            : b[key] - a[key];
+            ? // @ts-expect-error: save for another day
+              b[key].localeCompare(a[key])
+            : // @ts-expect-error: save for another day
+              b[key] - a[key];
       else
         throw new Error(
           "Invalid direction for sort(key, direction), expected " +
@@ -117,28 +167,28 @@ class Cursor {
     return this;
   }
 
-  limit(limit) {
+  limit(limit: number) {
     this._limit = limit;
     return this;
   }
 
-  skip(skip) {
+  skip(skip: number) {
     this._skip = skip;
     return this;
   }
 
   // --- watching ---
-  watch(onUpdate, opts = {}) {
-    let changes = [];
+  watch(onUpdate: (docs: Array<Document>) => void, opts: WatchOptions = {}) {
+    let changes: Array<ChangeStreamEvent> = [];
     const context = `${this.collection.name}#${this._id}.watch()`;
     debug(`${context}: init`, this._query);
     if (opts.debounce === undefined) opts.debounce = 50;
 
-    const update = (initial) => {
+    const update = (initial?: boolean) => {
       if (!initial) this._queryResults = null;
 
       const data = this.toArraySync();
-      this.lastDataIds = data.map((x) => x._id);
+      this._lastDataIds = data.map((x) => x._id);
       return initial ? data : onUpdate(data);
     };
 
@@ -150,7 +200,7 @@ class Cursor {
     // short-circuit and run update.
     const _checkChanges = () => {
       let relevantChange = false;
-      for (let change of changes) {
+      for (const change of changes) {
         // operationType: 'insert', fullDocument: {}, documentKey: { _id: XXX }
         // operationType: 'update', fullDocument: {}, documentKey: { _id: XXX }
         // operationType: 'delete', documentKey: { _id: XXX }
@@ -159,13 +209,13 @@ class Cursor {
 
         // If the change was for a doc that is already in our cursor, or
         // a new doc that matches our query
-        if (this.lastDataIds.includes(_id) || (doc && this.query(doc))) {
+        if (this._lastDataIds.includes(_id) || (doc && this.query(doc))) {
           relevantChange = true;
           break;
         }
       }
 
-      let length = changes.length;
+      const length = changes.length;
       changes = [];
 
       if (relevantChange) {
@@ -185,10 +235,15 @@ class Cursor {
       : _checkChanges;
 
     // TODO, what if population didn't affect our result set? optimize? compare arrays?
+    // @ts-expect-error: it's ok, we don't use the ChangeStreamEvent
     cs.on("populateEnd", update);
 
     cs.on("change", (change) => {
       //debug(`queued change ${this.collection.name}#${this._id}`, change);
+      if (!change)
+        throw new Error(
+          "cs.on('change') expected a change, not: " + JSON.stringify(change)
+        );
       changes.push(change);
       checkChanges();
     });
@@ -207,7 +262,7 @@ class Cursor {
         this._queryResults = null;
 
       const data = this.toArraySync();
-      this.lastDataIds = data.map(x => x._id);
+      this._lastDataIds = data.map(x => x._id);
       return initial ? data : onUpdateFunc(data);
     }
 
@@ -228,7 +283,7 @@ class Cursor {
 
       // If the change was for a doc that is already in our cursor, or
       // a new doc that matches our query
-      if (this.lastDataIds.includes(_id) || doc && this.query(doc)) {
+      if (this._lastDataIds.includes(_id) || doc && this.query(doc)) {
         // Note: in theory we could update the data array directly rather
         // than re-running the query.  Potential future optimization, unclear
         // how much added benefit and could introduce side-effects.
@@ -240,9 +295,9 @@ class Cursor {
   }
   */
 
-  findAndWatch(callback) {
+  findAndWatch(callback: (docs: Array<Document>) => void) {
     const data = this.watch(callback);
-    callback(data);
+    if (data) callback(data);
   }
 
   unwatch() {
@@ -253,5 +308,3 @@ class Cursor {
     this.changeStreams.forEach((cs) => cs.close());
   }
 }
-
-module.exports = { __esModule: true, default: Cursor };
