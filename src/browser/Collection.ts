@@ -1,9 +1,9 @@
 const modify = require("modifyjs"); // no types
 import sift from "sift";
 
-//import Cursor from "./Cursor";
-const Cursor = require("./Cursor");
+import Cursor from "./Cursor";
 import ChangeStream from "./ChangeStream";
+import type { ChangeStreamEvent } from "./ChangeStream";
 import type Database from "./Database";
 
 import { debug, randomId } from "./utils";
@@ -17,11 +17,12 @@ export interface CollectionOptions {
 // TODO, get ideas from mongodb interface?
 export interface Document {
   [key: string]: unknown;
-  _id?: string;
+  _id: string;
   __ObjectIDs?: Array<string>;
 }
 
-export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
+//export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
+export type OptId<TSchema> = Omit<TSchema, "_id"> & { _id?: string };
 
 // TODO, copy from mongodb "Filter" interface?
 export interface Query {
@@ -39,7 +40,7 @@ export interface UpdateFilter {
 export default class Collection {
   db: Database;
   name: string;
-  documents: Map<string, WithId<Document>>;
+  documents: Map<string, Document>;
   persists: Array<ReturnType<typeof sift>>;
   changeStreams: Array<ChangeStream>;
   isLocalCollection: boolean;
@@ -58,14 +59,13 @@ export default class Collection {
     this.idType = opts.idType || "ObjectID";
   }
 
-  insertMissingId(doc: Document) {
+  insertMissingId(doc: OptId<Document>) {
     if (doc._id) return;
-    // @ts-expect-error: Collection.randomId = randomId; changed in testing.
     else if (this.idType === "random") doc._id = Collection.randomId();
     else if (this.idType === "ObjectID") {
       doc._id = ObjectID().toHexString();
       if (!doc.__ObjectIDs) doc.__ObjectIDs = ["_id"];
-      else doc.__ObjectIDs.push("_id");
+      else (doc.__ObjectIDs as Array<string>).push("_id");
     }
   }
 
@@ -108,7 +108,7 @@ export default class Collection {
     return cs;
   }
 
-  csExec(type: string, data?: unknown) {
+  csExec(type: string, data?: ChangeStreamEvent) {
     // Note, cs.exec catches errors, so no need to catch here.
     this.changeStreams.forEach((cs) => cs.exec(type, data));
   }
@@ -153,7 +153,7 @@ export default class Collection {
       // TODO, throw error.  add upsert support
     }
 
-    this.documents.set(document._id, document as WithId<Document>);
+    this.documents.set(document._id, document);
 
     if (this.shouldPersist(document)) this.db.idb.put(this.name, document);
 
@@ -167,7 +167,7 @@ export default class Collection {
    * @param  {object} document - document to insert
    * @return {object} document - the inserted document (with _id)
    */
-  insert(document: Document) {
+  insert(document: OptId<Document>) {
     const docToInsert = this.isLocalCollection
       ? {
           ...document,
@@ -180,19 +180,19 @@ export default class Collection {
 
     this.insertMissingId(docToInsert);
 
-    this._insert(docToInsert);
+    this._insert(docToInsert as Document);
     this._didUpdate();
 
     return docToInsert;
   }
 
-  find(query: Query, options: FindOptions) {
+  find(query: Query = {}, options?: FindOptions) {
     return new Cursor(this, query, options);
   }
 
-  findOne(id: string): WithId<Document> | null;
-  findOne(query: Query): WithId<Document> | null;
-  findOne(query: string | Query) {
+  findOne(id: string): Document | null;
+  findOne(query: Query): Document | null;
+  findOne(query: string | Query): Document | null {
     if (typeof query === "string") return this.documents.get(query) || null;
 
     const matches = sift(query);
@@ -202,16 +202,17 @@ export default class Collection {
     return null;
   }
 
-  _update(strId: string, newDoc: Document) {
+  _update(strId: string, newDoc: OptId<Document>) {
     if (typeof strId !== "string")
       throw new Error(
         "_update(id, ...) expects string id, not " + JSON.stringify(strId)
       );
 
     newDoc._id = strId;
-    this.documents.set(strId, newDoc as WithId<Document>);
+    this.documents.set(strId, newDoc as Document);
 
-    if (this.shouldPersist(newDoc)) this.db.idb.put(this.name, newDoc);
+    if (this.shouldPersist(newDoc as Document))
+      this.db.idb.put(this.name, newDoc);
 
     // TODO should we assert strId = newDoc._id?
 
@@ -291,7 +292,7 @@ export default class Collection {
   }
 
   // TODO, needs more work... what to insert, what to update (just replace doc?)
-  upsert(query: Query, doc: Document) {
+  upsert(query: Query, doc: OptId<Document>) {
     const existing = this.findOne(query);
     if (existing) {
       this.update(query, { $set: doc });
