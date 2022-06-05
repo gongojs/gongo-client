@@ -1,24 +1,29 @@
-const Subscription = require("./Subscription").default;
+import Subscription from "./Subscription";
+import type Database from "./Database";
 
 describe("Subscription", () => {
+  const fakeDb = {} as unknown as Database;
+
   describe("Class instances", () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     describe("constructor()", () => {}); /* constructor() */
 
     describe("toObject()", () => {
       it("includes opts if they exist", () => {
-        const sub = new Subscription(null, null, { a: 1 });
+        const sub = new Subscription(fakeDb, "test", { a: 1 });
         expect(sub.toObject().opts).toMatchObject({ a: 1 });
       });
 
       it("doesn't include opts if they don't exist", () => {
-        const sub = new Subscription(null, null);
+        const sub = new Subscription(fakeDb, "test");
         expect(sub.toObject().opts).toBeUndefined();
       });
     }); /* toObject() */
 
     describe("hash()", () => {
       it("returns cached result from 2nd call onwards", () => {
-        const sub = new Subscription(null, "test");
+        const sub = new Subscription(fakeDb, "test");
+        // @ts-expect-error: for test purposes
         const obj = (sub._hash = {});
         expect(sub.hash()).toBe(obj);
       });
@@ -26,7 +31,7 @@ describe("Subscription", () => {
 
     describe("stop()", () => {
       it("de-activates sub", () => {
-        const sub = new Subscription();
+        const sub = new Subscription(fakeDb, "test");
         sub.stop();
         expect(sub.active).toBe(false);
       });
@@ -38,7 +43,7 @@ describe("Subscription", () => {
           subscriptions: new Map(),
           gongoStore: { _insertOrReplaceOne: jest.fn() },
           getSubscriptions: jest.fn().mockReturnValueOnce("getsubs"),
-        };
+        } as unknown as Database;
 
         const sub = new Subscription(db, "test");
         db.subscriptions.set(sub.hash(), sub);
@@ -63,10 +68,10 @@ describe("Subscription", () => {
 
     describe("fromHash()", () => {
       it("creates a new sub from hash", () => {
-        const sub = new Subscription(null, "test", { a: 1 });
+        const sub = new Subscription(fakeDb, "test", { a: 1 });
         const hash = sub.hash();
 
-        const newSub = Subscription.fromHash(hash);
+        const newSub = Subscription.fromHash(hash, fakeDb);
         expect(newSub.name).toBe(sub.name);
         expect(newSub.opts).toEqual(sub.opts);
       });

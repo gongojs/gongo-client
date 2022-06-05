@@ -1,13 +1,29 @@
-class Subscription {
-  constructor(db, name, opts) {
+import type Database from "./Database";
+
+export type SubscriptionOptions = Record<string, unknown>;
+
+export type UpdatedAt = Record<string, number>;
+
+export default class Subscription {
+  db: Database;
+  name: string;
+  opts?: SubscriptionOptions;
+  active: boolean;
+  _hash: string;
+  updatedAt: UpdatedAt;
+
+  constructor(db: Database, name: string, opts?: SubscriptionOptions) {
     this.db = db;
     this.name = name;
     this.opts = opts;
+    this.active = true;
+    this.updatedAt = {};
+    this._hash = Subscription.toHash(this.name, this.opts);
   }
 
   toObject() {
     // return Object.assign({}, this);
-    const obj = { name: this.name };
+    const obj: Partial<SubscriptionOptions> = { name: this.name };
     if (this.opts) obj.opts = this.opts;
     if (this.updatedAt) obj.updatedAt = this.updatedAt;
     return obj;
@@ -19,15 +35,15 @@ class Subscription {
     return (this._hash = Subscription.toHash(this.name, this.opts));
   }
 
-  static toHash(name, opts) {
-    const parts = [name];
+  static toHash(name: string, opts?: SubscriptionOptions) {
+    const parts: [string, SubscriptionOptions?] = [name];
     if (opts) parts.push(opts);
     return JSON.stringify(parts);
   }
 
-  static fromHash(hash) {
+  static fromHash(hash: string, db: Database) {
     const [name, opts] = JSON.parse(hash);
-    return new Subscription(this, name, opts);
+    return new Subscription(db, name, opts);
   }
 
   stop() {
@@ -44,5 +60,3 @@ class Subscription {
     });
   }
 }
-
-module.exports = { __esModule: true, default: Subscription };
