@@ -1,10 +1,14 @@
+import type Collection from "./Collection";
+
 export type ChangeStreamCallback = (obj?: unknown) => void;
 
 export default class ChangeStream {
-  _isClosed = false;
+  collection?: Collection;
   callbacks: Record<string, Array<ChangeStreamCallback>>;
+  _isClosed = false;
 
-  constructor() {
+  constructor(collection?: Collection) {
+    this.collection = collection;
     this.callbacks = {
       change: [],
       populateStart: [],
