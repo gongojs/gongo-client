@@ -4,6 +4,12 @@ export type SubscriptionOptions = Record<string, unknown>;
 
 export type UpdatedAt = Record<string, number>;
 
+export interface SubscriptionObject {
+  name: string;
+  opts?: SubscriptionOptions;
+  updatedAt: UpdatedAt;
+}
+
 export default class Subscription {
   db: Database;
   name: string;
@@ -23,10 +29,10 @@ export default class Subscription {
 
   toObject() {
     // return Object.assign({}, this);
-    const obj: Partial<SubscriptionOptions> = { name: this.name };
+    const obj: Partial<SubscriptionObject> = { name: this.name };
     if (this.opts) obj.opts = this.opts;
     if (this.updatedAt) obj.updatedAt = this.updatedAt;
-    return obj;
+    return obj as SubscriptionObject;
   }
 
   hash() {

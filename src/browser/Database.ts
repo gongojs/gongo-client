@@ -1,43 +1,100 @@
-const Collection = require("./Collection").default;
-const Subscription = require("./Subscription").default;
+import ObjectID from "bson-objectid";
+
+import Collection from "./Collection";
+import Subscription from "./Subscription";
+// import * as utils from "./utils";
 const GongoIDB = require("./idb").default;
-const utils = require("./utils");
 const sync = require("./sync");
 
-const ObjectID = require("bson-objectid");
+import type { CollectionOptions, Document } from "./Collection";
+import type { SubscriptionObject, SubscriptionOptions } from "./Subscription";
+
+export interface DatabaseOptions {
+  // [key: string]: unknown;
+  name?: string;
+  gongoStoreNoPersist?: boolean;
+}
+
+export type DatabaseCallback = (this: Database) => void;
+
+export interface CallOptions {
+  [key: string]: unknown;
+}
+
+export interface CallResult {
+  [key: string]: unknown;
+}
+
+export interface CallResultRaw {
+  $result?: unknown;
+  $error?: unknown;
+  time: number;
+}
+
+export interface PublicationResult {
+  results?: Array<{
+    coll: string;
+    entries: Array<Document>;
+  }>;
+  resultsMeta?: unknown;
+}
+
+export interface QueuedCall {
+  name: string;
+  opts: unknown;
+  resolve: (value: CallResult) => void;
+  reject: (reason: unknown) => void;
+}
+
+// export type DocWithObjectIds = Omit<Document, "_id">;
 
 // See also objectifyStringIDs in sync.js
 // TODO, move together
-function stringifyObjectIDs(entry) {
-  Object.keys(entry).forEach((key) => {
-    if (entry[key] instanceof ObjectID) {
-      if (!entry.__ObjectIDs) entry.__ObjectIDs = [];
+function stringifyObjectIDs(entry: Document) {
+  for (const [key, value] of Object.entries(entry)) {
+    if (value instanceof ObjectID) {
+      if (!entry.__ObjectIDs) entry.__ObjectIDs = [] as Array<string>;
       if (!entry.__ObjectIDs.includes(key)) entry.__ObjectIDs.push(key);
-      entry[key] = entry[key].toHexString();
+      entry[key] = (entry[key] as ObjectID).toHexString();
     }
-  });
+  }
 
   stringifyObjectIDsOld(entry);
 }
 
-function stringifyObjectIDsOld(entry) {
+function stringifyObjectIDsOld(entry: Document) {
   Object.keys(entry).forEach((key) => {
     if (
       entry[key] !== null &&
       typeof entry[key] === "object" &&
-      entry[key]._bsontype === "ObjectID"
+      (entry[key] as Record<string, unknown>)._bsontype === "ObjectID"
     ) {
       console.warn("Un-reconstructed ObjectID", key, entry);
 
       if (!entry.__ObjectIDs) entry.__ObjectIDs = [];
       if (!entry.__ObjectIDs.includes(key)) entry.__ObjectIDs.push(key);
+      // @ts-expect-error: it's ok, we really have checked this out
       entry[key] = entry[key].id.toString("hex");
     }
   });
 }
 
 class Database {
-  constructor(opts = {}) {
+  name: string;
+  collections: Map<string, Collection>;
+  subscriptions: Map<string, Subscription>;
+  extensions: Record<string, unknown>;
+  queuedCalls: Array<QueuedCall>;
+  callbacks: Record<string, Array<DatabaseCallback>>;
+  idb: typeof GongoIDB;
+  gongoStore: Collection;
+  persistedQueriesExist?: boolean;
+  getChangeSet: () => unknown; // TODO, ChangeSet type
+  _didUpdateTimeout?: ReturnType<typeof setTimeout>;
+
+  static Collection = Collection;
+
+  constructor(opts: DatabaseOptions = {}) {
     this.name = opts.name || "default";
     this.collections = new Map();
     this.subscriptions = new Map();
@@ -60,14 +117,14 @@ class Database {
     this.getChangeSet = () => sync.getChangeSet(this);
   }
 
-  on(event, callback) {
+  on(event: string, callback: DatabaseCallback) {
     if (!this.callbacks[event])
       throw new Error("db.on(event) on non-existent event: " + event);
 
     this.callbacks[event].push(callback);
   }
 
-  off(event, callback) {
+  off(event: string, callback: DatabaseCallback) {
     if (!this.callbacks[event])
       throw new Error("db.off(event) on non-existent event: " + event);
 
@@ -77,11 +134,11 @@ class Database {
     );
   }
 
-  exec(event) {
+  exec(event: string) {
     if (!this.callbacks[event])
       throw new Error("db.exec(event) on non-existent event: " + event);
 
-    for (let callback of this.callbacks[event]) {
+    for (const callback of this.callbacks[event]) {
       try {
         callback.call(this);
       } catch (e) {
@@ -96,7 +153,7 @@ class Database {
     this._didUpdateTimeout = setTimeout(() => this.exec("updatesFinished"), 50);
   }
 
-  collection(name, opts) {
+  collection(name: string, opts?: CollectionOptions) {
     let coll = this.collections.get(name);
     if (coll) return coll;
 
@@ -105,7 +162,7 @@ class Database {
     return coll;
   }
 
-  subscribe(name, opts) {
+  subscribe(name: string, opts: SubscriptionOptions) {
     const sub = new Subscription(this, name, opts);
     const hash = sub.hash();
 
@@ -133,33 +190,51 @@ class Database {
   async runSubscriptions() {
     await Promise.all(
       this.getSubscriptions(false).map(async (subReq) => {
-        let pubRes;
+        let publicationResult: PublicationResult;
         try {
-          pubRes = await this.call("subscribe", subReq);
-        } catch (error) {
-          console.error(
-            "Skipping subscription error: " +
-              JSON.stringify(subReq) +
-              "\n" +
-              (error.stack || `{$error.name}: ${error.message}`)
+          publicationResult = await this.call(
+            "subscribe",
+            subReq as unknown as CallOptions
           );
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error(
+              "Skipping subscription error: " +
+                JSON.stringify(subReq) +
+                "\n" +
+                (error.stack || `{$error.name}: ${error.message}`)
+            );
+          } else {
+            console.error(
+              "Skipping subscription error: " +
+                JSON.stringify(subReq) +
+                "\n" +
+                JSON.stringify(error)
+            );
+          }
           return;
         }
 
-        const results = pubRes.results;
+        const results = publicationResult.results;
         if (!results) return;
 
         const hash = Subscription.toHash(subReq.name, subReq.opts);
         const sub = this.subscriptions.get(hash);
-        if (!sub.updatedAt) sub.updatedAt = {};
+        if (!sub) {
+          console.error(
+            "Internal error, subscription disappeared: " +
+              JSON.stringify(subReq)
+          );
+          return;
+        }
 
         //const slug =  sub.name, sub.opts
-        for (let pair of results) {
+        for (const pair of results) {
           // pair ~= { coll, entries }
 
           const coll = this.collection(pair.coll);
           let collUpdatedAt = sub.updatedAt[pair.coll] || 0;
-          for (let entry of pair.entries) {
+          for (const entry of pair.entries) {
             // entry ~= [ { _id: "", __updatedAt: "", blah: "str" }, {}, ... ]
             //
             stringifyObjectIDs(entry);
@@ -184,9 +259,10 @@ class Database {
 
   populateSubscriptions() {
     const subStore = this.gongoStore.findOne("subscriptions");
-    if (subStore && subStore.subscriptions)
-      subStore.subscriptions.forEach((subObj) => {
-        let hash = Subscription.toHash(subObj.name, subObj.opts);
+    if (subStore && subStore.subscriptions) {
+      const subscriptions = subStore.subscriptions as Array<SubscriptionObject>;
+      for (const subObj of subscriptions) {
+        const hash = Subscription.toHash(subObj.name, subObj.opts);
         let sub = this.subscriptions.get(hash);
         if (!sub) {
           sub = new Subscription(this, subObj.name, subObj.opts);
@@ -195,7 +271,8 @@ class Database {
           this.subscriptions.set(hash, sub);
         }
         sub.updatedAt = subObj.updatedAt;
-      });
+      }
+    }
   }
 
   /*
@@ -219,7 +296,7 @@ class Database {
 
   // --- methods ---
 
-  call(name, opts) {
+  call(name: string, opts: CallOptions): Promise<CallResult> {
     return new Promise((resolve, reject) => {
       // const id = utils.randomId();
       this.queuedCalls.push({ name, opts, /*id,*/ resolve, reject });
@@ -233,8 +310,22 @@ class Database {
     return queued;
   }
 
-  async processCallResults(callResults, waitingCalls) {
-    const debugResults = { ok: [], fail: [], emptySubs: [] };
+  async processCallResults(
+    callResults: Array<CallResultRaw>,
+    waitingCalls: Array<QueuedCall>
+  ) {
+    type DebugResult = {
+      method: string;
+      opts: unknown;
+      result?: unknown;
+      error?: unknown;
+      time: number;
+    };
+    const debugResults = { ok: [], fail: [], emptySubs: [] } as {
+      ok: Array<DebugResult>;
+      fail: Array<DebugResult>;
+      emptySubs: Array<DebugResult>;
+    };
 
     if (callResults.length !== waitingCalls.length) {
       console.error({ callResults, waitingCalls });
@@ -252,7 +343,10 @@ class Database {
         // console.log(result.$result);
         if (
           call.name === "subscribe" &&
-          !(result.results || result.resultsMeta)
+          !(
+            (result as PublicationResult).results ||
+            (result as PublicationResult).resultsMeta
+          )
         )
           debugResults.emptySubs.push({
             method: call.name,
@@ -267,7 +361,7 @@ class Database {
             result: result.$result,
             time: result.time,
           });
-        call.resolve(result.$result);
+        call.resolve(result.$result as CallResult);
       } else if (result.$error !== undefined) {
         call.reject(result.$error);
         debugResults.ok.push({
@@ -313,16 +407,16 @@ class Database {
 
   /* modules / extensions */
 
-  extend(name, Class, options) {
+  extend(
+    name: string,
+    Class: new () => typeof Class,
+    options: Record<string, unknown>
+  ) {
     // TODO, only allow up until a certain point and then lock.
+    // @ts-expect-error: figure out correct ts way to do this <T extends something> i guess :)
     this[name] = this.extensions[name] = new Class(this, options);
   }
 }
 
-Database.Collection = Collection;
-
-module.exports = {
-  __esModule: true,
-  default: Database,
-  stringifyObjectIDs,
-};
+export { stringifyObjectIDs };
+export default Database;

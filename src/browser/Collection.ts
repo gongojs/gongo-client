@@ -19,10 +19,18 @@ export interface Document {
   [key: string]: unknown;
   _id: string;
   __ObjectIDs?: Array<string>;
+  __updatedAt: number;
 }
 
 //export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
 export type OptId<TSchema> = Omit<TSchema, "_id"> & { _id?: string };
+export type OptUpdated<TSchema> = Omit<TSchema, "__updatedAt"> & {
+  __updatedAt?: number;
+};
+export type NewDoc<TSchema> = Omit<TSchema, "_id" | "__updatedAt"> & {
+  _id?: string;
+  __updatedAt?: number;
+};
 
 // TODO, copy from mongodb "Filter" interface?
 export interface Query {
@@ -59,7 +67,7 @@ export default class Collection {
     this.idType = opts.idType || "ObjectID";
   }
 
-  insertMissingId(doc: OptId<Document>) {
+  insertMissingId(doc: NewDoc<Document>) {
     if (doc._id) return;
     else if (this.idType === "random") doc._id = Collection.randomId();
     else if (this.idType === "ObjectID") {
@@ -167,7 +175,7 @@ export default class Collection {
    * @param  {object} document - document to insert
    * @return {object} document - the inserted document (with _id)
    */
-  insert(document: OptId<Document>) {
+  insert(document: NewDoc<Document>) {
     const docToInsert = this.isLocalCollection
       ? {
           ...document,
@@ -230,7 +238,7 @@ export default class Collection {
     return newDoc;
   }
 
-  updateId(strId: string, newDocOrChanges: Document | UpdateFilter) {
+  updateId(strId: string, newDocOrChanges: NewDoc<Document> | UpdateFilter) {
     const oldDoc = this.documents.get(strId);
 
     if (!oldDoc || oldDoc.__pendingDelete)
@@ -259,7 +267,7 @@ export default class Collection {
 
   update(
     idOrSelector: string | Query,
-    newDocOrChanges: Document | UpdateFilter
+    newDocOrChanges: NewDoc<Document> | UpdateFilter
   ) {
     if (typeof idOrSelector === "string") {
       return this.updateId(idOrSelector, newDocOrChanges);
@@ -292,7 +300,7 @@ export default class Collection {
   }
 
   // TODO, needs more work... what to insert, what to update (just replace doc?)
-  upsert(query: Query, doc: OptId<Document>) {
+  upsert(query: Query, doc: NewDoc<Document>) {
     const existing = this.findOne(query);
     if (existing) {
       this.update(query, { $set: doc });
@@ -301,8 +309,8 @@ export default class Collection {
     }
   }
 
-  _insertOrReplaceOne(doc: Document) {
-    if (!doc._id)
+  _insertOrReplaceOne(doc: OptUpdated<Document>) {
+    if (typeof doc._id !== "string")
       throw new Error(
         "_insertOrReplaceOne, no `_id` field in " + JSON.stringify(doc)
       );

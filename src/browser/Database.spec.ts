@@ -1,16 +1,17 @@
 const ARSON = require("arson");
-const ObjectID = require("bson-objectid");
+import ObjectID from "bson-objectid";
 require("fake-indexeddb/auto");
 
 process.on("unhandledRejection", (error, p) => {
   console.log("=== UNHANDLED REJECTION ===");
+  // @ts-expect-error: it's fine, I promise
   console.dir(error.stack);
 });
 
-const Database = require("./Database").default;
-const stringifyObjectIDs = require("./Database").stringifyObjectIDs;
-const objectifyStringIDs = require("./Database").objectifyStringIDs;
-const utils = require("./utils");
+import Database from "./Database";
+import { stringifyObjectIDs } from "./Database";
+import type { Document } from "./Collection";
+import * as utils from "./utils";
 
 describe("stringifyObjectIDs", () => {
   it("does like it says", () => {
