@@ -9,6 +9,9 @@ const sync = require("./sync");
 import type { CollectionOptions, Document } from "./Collection";
 import type { SubscriptionObject, SubscriptionOptions } from "./Subscription";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Class = { new (...args: any[]): any };
+
 export interface DatabaseOptions {
   // [key: string]: unknown;
   name?: string;
@@ -50,11 +53,12 @@ export interface QueuedCall {
 
 // See also objectifyStringIDs in sync.js
 // TODO, move together
-function stringifyObjectIDs(entry: Document) {
+function stringifyObjectIDs(entry: Record<string, unknown>) {
   for (const [key, value] of Object.entries(entry)) {
     if (value instanceof ObjectID) {
-      if (!entry.__ObjectIDs) entry.__ObjectIDs = [] as Array<string>;
-      if (!entry.__ObjectIDs.includes(key)) entry.__ObjectIDs.push(key);
+      const oids = (entry.__ObjectIDs ||
+        (entry.__ObjectIDs = [])) as Array<string>;
+      if (!oids.includes(key)) oids.push(key);
       entry[key] = (entry[key] as ObjectID).toHexString();
     }
   }
@@ -62,7 +66,7 @@ function stringifyObjectIDs(entry: Document) {
   stringifyObjectIDsOld(entry);
 }
 
-function stringifyObjectIDsOld(entry: Document) {
+function stringifyObjectIDsOld(entry: Record<string, unknown>) {
   Object.keys(entry).forEach((key) => {
     if (
       entry[key] !== null &&
@@ -71,8 +75,9 @@ function stringifyObjectIDsOld(entry: Document) {
     ) {
       console.warn("Un-reconstructed ObjectID", key, entry);
 
-      if (!entry.__ObjectIDs) entry.__ObjectIDs = [];
-      if (!entry.__ObjectIDs.includes(key)) entry.__ObjectIDs.push(key);
+      const oids = (entry.__ObjectIDs ||
+        (entry.__ObjectIDs = [])) as Array<string>;
+      if (!oids.includes(key)) oids.push(key);
       // @ts-expect-error: it's ok, we really have checked this out
       entry[key] = entry[key].id.toString("hex");
     }
@@ -162,7 +167,7 @@ class Database {
     return coll;
   }
 
-  subscribe(name: string, opts: SubscriptionOptions) {
+  subscribe(name: string, opts?: SubscriptionOptions) {
     const sub = new Subscription(this, name, opts);
     const hash = sub.hash();
 
@@ -296,7 +301,7 @@ class Database {
 
   // --- methods ---
 
-  call(name: string, opts: CallOptions): Promise<CallResult> {
+  call(name: string, opts?: CallOptions): Promise<CallResult> {
     return new Promise((resolve, reject) => {
       // const id = utils.randomId();
       this.queuedCalls.push({ name, opts, /*id,*/ resolve, reject });
@@ -407,11 +412,7 @@ class Database {
 
   /* modules / extensions */
 
-  extend(
-    name: string,
-    Class: new () => typeof Class,
-    options: Record<string, unknown>
-  ) {
+  extend(name: string, Class: Class, options: Record<string, unknown>) {
     // TODO, only allow up until a certain point and then lock.
     // @ts-expect-error: figure out correct ts way to do this <T extends something> i guess :)
     this[name] = this.extensions[name] = new Class(this, options);

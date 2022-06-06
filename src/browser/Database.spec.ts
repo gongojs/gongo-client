@@ -10,7 +10,7 @@ process.on("unhandledRejection", (error, p) => {
 
 import Database from "./Database";
 import { stringifyObjectIDs } from "./Database";
-import type { Document } from "./Collection";
+import type { NewDoc, Document } from "./Collection";
 import * as utils from "./utils";
 
 describe("stringifyObjectIDs", () => {
@@ -62,6 +62,7 @@ describe("Database", () => {
     });
 
     it("defines getChangeSet", () => {
+      // eslint-disable-next-line
       const sync = require("./sync");
       const db = new Database();
 
@@ -81,6 +82,7 @@ describe("Database", () => {
         const db = new Database();
         const cb = {};
 
+        // @ts-expect-error: stub
         expect(() => db.on("doesNotExist", cb)).toThrow(/non-existent/);
       });
 
@@ -91,7 +93,9 @@ describe("Database", () => {
         const cb1 = {};
         const cb2 = {};
 
+        // @ts-expect-error: stub
         db.on("test", cb1);
+        // @ts-expect-error: stub
         db.on("test", cb2);
         expect(db.callbacks["test"]).toEqual([cb1, cb2]);
       });
@@ -99,6 +103,7 @@ describe("Database", () => {
 
     describe("off", () => {
       it("throws on non-existent event", () => {
+        // @ts-expect-error: stub
         expect(() => new Database().off("non-exist")).toThrow(/non-existent/);
       });
 
@@ -138,6 +143,7 @@ describe("Database", () => {
         });
 
         const error = console.error;
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         console.error = () => {};
         expect(() => db.exec("test")).not.toThrow();
         console.error = error;
@@ -166,7 +172,9 @@ describe("Database", () => {
       jest.useFakeTimers();
 
       const existingCallbackToBeCleared = jest.fn();
+      // @ts-expect-error: stub
       db._didUpdateTimeout = existingCallbackToBeCleared;
+      // @ts-expect-error: stub
       db._updatesFinished = jest.fn();
       db._didUpdate();
       jest.runAllTimers();
@@ -181,6 +189,77 @@ describe("Database", () => {
       expect(db.collection("test")).toBe(col);
     });
   });
+
+  describe("calls", () => {
+    describe("call", () => {
+      it("queues the call with resolve,reject and returns promise", () => {
+        const db = new Database();
+        // utils._randomId = utils.randomId;
+        // utils.randomId = () => "id";
+        // Returns a promise, but we want to see what will happen before it resolves
+        const result = db.call("someMethod", { a: 1 });
+        // utils._randomId = utils.randomId;
+
+        const call = db.queuedCalls[0];
+        expect(call.name).toBe("someMethod");
+        expect(call.opts).toEqual({ a: 1 });
+        // expect(call.id).toBe("id");
+        expect(call.resolve).toBeInstanceOf(Function);
+        expect(call.reject).toBeInstanceOf(Function);
+
+        expect(result).toBeInstanceOf(Promise);
+      });
+
+      it("calls _didUpdate", () => {
+        const db = new Database();
+        db._didUpdate = jest.fn();
+        // utils._randomId = utils.randomId;
+        // utils.randomId = () => "id";
+        db.call("someMethod", { a: 1 });
+        // utils._randomId = utils.randomId;
+
+        expect(db._didUpdate).toHaveBeenCalled();
+      });
+    });
+
+    describe("getQueuedCalls", () => {
+      let db: Database;
+      beforeEach(() => {
+        db = new Database();
+        db._didUpdate = jest.fn();
+        // utils._randomId = utils.randomId;
+        // utils.randomId = () => "id";
+      });
+
+      afterEach(() => {
+        // utils._randomId = utils.randomId;
+      });
+
+      it("clears the queue", () => {
+        db.call("someMethod");
+        expect(db.queuedCalls.length).toBe(1);
+        db.getAndFlushQueuedCalls();
+        expect(db.queuedCalls.length).toBe(0);
+      });
+
+      /*
+      it("sets waitMethodsById and returns array of query data", () => {
+        db.call("someMethod", { a: 1 });
+        const methodData = db.queuedCalls[0];
+        const results = db.getAndFlushQueuedCalls();
+
+        expect(db.waitingMethods.get("id")).toBe(methodData);
+        expect(results).toEqual([
+          { id: "id", name: "someMethod", opts: { a: 1 } },
+        ]);
+      });
+      */
+    }); /* getQueuedCalls */
+
+    describe("processCallResults", () => {
+      // TODO
+    });
+  }); /* methods */
 
   describe("subscriptions", () => {
     const dbOpts = { gongoStoreNoPersist: true };
@@ -253,6 +332,7 @@ describe("Database", () => {
         db.populateSubscriptions();
         const sub = db.subscriptions.get('["test"]');
         expect(sub).toBeTruthy();
+        // @ts-expect-error: guarded above
         expect(sub.updatedAt).toEqual({ test: now });
       });
 
@@ -276,22 +356,26 @@ describe("Database", () => {
         db.populateSubscriptions();
         const sub = db.subscriptions.get('["test"]');
         expect(sub).toBeTruthy();
+        // @ts-expect-error: guarded above
         expect(sub.active).toBe(false);
       });
     });
 
+    /*
     describe("processSubResults", () => {
       it("ignores errors from server", () => {
         const db = new Database();
         const subResults = [{ name: "test", error: new Error() }];
 
         // stub for { _id: "subscriptions" } update
+        // @ts-expect-error: stub
         db.gongoStore = {
           _insertOrReplaceOne: jest.fn(),
         };
 
         // i.e. won't try iterate on non-existent { results: [] }
         const warn = console.warn;
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         console.warn = () => {};
         expect(() => db.processSubResults(subResults)).not.toThrow();
         console.warn = warn;
@@ -397,110 +481,57 @@ describe("Database", () => {
         expect(testCol._remove).toHaveBeenCalledWith("id1");
       });
     });
+    */
+
+    describe("runSubscriptions", () => {
+      // TODO
+    });
+
+    /*
+    let db: Database;
+    // let realRandomId;
+    beforeEach(() => {
+      db = new Database();
+      db._didUpdate = jest.fn();
+      //realRandomId = utils.randomId;
+      // ts-expect-error: stub
+      // utils.randomId = () => "id";
+    });
+
+    afterEach(() => {
+      // ts-expect-error: stub
+      // utils.randomId = realRandomId;
+    });
+
+    it("resolves", () => {
+      //db.call = jest.fn(() => ());
+      //db.call.mock
+      const promise = db.call("method");
+      db.getAndFlushQueuedCalls();
+      db.processMethodsResults([
+        {
+          id: "id",
+          result: "OK",
+        },
+      ]);
+
+      return expect(promise).resolves.toBe("OK");
+    });
+
+    it("rejects", () => {
+      const promise = db.call("method");
+      db.getAndFlushQueuedCalls();
+      db.processMethodsResults([
+        {
+          id: "id",
+          error: "d'oh",
+        },
+      ]);
+
+      return expect(promise).rejects.toBe("d'oh");
+    });
+    */
   });
-
-  describe("methods", () => {
-    describe("call", () => {
-      it("queues the call with resolve,reject and returns promise", () => {
-        const db = new Database();
-        utils._randomId = utils.randomId;
-        utils.randomId = () => "id";
-        const result = db.call("someMethod", { a: 1 });
-        utils._randomId = utils.randomId;
-
-        expect(db.queuedMethods[0].name).toBe("someMethod");
-        expect(db.queuedMethods[0].opts).toEqual({ a: 1 });
-        expect(db.queuedMethods[0].id).toBe("id");
-        expect(db.queuedMethods[0].resolve).toBeInstanceOf(Function);
-        expect(db.queuedMethods[0].reject).toBeInstanceOf(Function);
-
-        expect(result).toBeInstanceOf(Promise);
-      });
-
-      it("calls _didUpdate", () => {
-        const db = new Database();
-        db._didUpdate = jest.fn();
-        utils._randomId = utils.randomId;
-        utils.randomId = () => "id";
-        db.call("someMethod", { a: 1 });
-        utils._randomId = utils.randomId;
-
-        expect(db._didUpdate).toHaveBeenCalled();
-      });
-    });
-
-    describe("getQueuedMethods", () => {
-      let db;
-      beforeEach(() => {
-        db = new Database();
-        db._didUpdate = jest.fn();
-        utils._randomId = utils.randomId;
-        utils.randomId = () => "id";
-      });
-
-      afterEach(() => {
-        utils._randomId = utils.randomId;
-      });
-
-      it("clears the queue", () => {
-        db.call("someMethod");
-        expect(db.queuedMethods.length).toBe(1);
-        db.getQueuedMethods();
-        expect(db.queuedMethods.length).toBe(0);
-      });
-
-      it("sets waitMethodsById and returns array of query data", () => {
-        db.call("someMethod", { a: 1 });
-        const methodData = db.queuedMethods[0];
-        const results = db.getQueuedMethods();
-
-        expect(db.waitingMethods.get("id")).toBe(methodData);
-        expect(results).toEqual([
-          { id: "id", name: "someMethod", opts: { a: 1 } },
-        ]);
-      });
-    }); /* getQueuedMethods */
-
-    describe("processMethodResults", () => {
-      let db;
-      beforeEach(() => {
-        db = new Database();
-        db._didUpdate = jest.fn();
-        utils._randomId = utils.randomId;
-        utils.randomId = () => "id";
-      });
-
-      afterEach(() => {
-        utils._randomId = utils.randomId;
-      });
-
-      it("resolves", () => {
-        const promise = db.call("method");
-        db.getQueuedMethods();
-        db.processMethodsResults([
-          {
-            id: "id",
-            result: "OK",
-          },
-        ]);
-
-        return expect(promise).resolves.toBe("OK");
-      });
-
-      it("rejects", () => {
-        const promise = db.call("method");
-        db.getQueuedMethods();
-        db.processMethodsResults([
-          {
-            id: "id",
-            error: "d'oh",
-          },
-        ]);
-
-        return expect(promise).rejects.toBe("d'oh");
-      });
-    });
-  }); /* methods */
 
   describe("other", () => {
     it("getTime()", () => {
@@ -513,6 +544,7 @@ describe("Database", () => {
       class AuthExtension {}
       db.extend("auth", AuthExtension, { a: 1 });
 
+      // @ts-expect-error: still need to figure out right TS way to do this.
       expect(db.auth).toBeInstanceOf(AuthExtension);
     });
   });
