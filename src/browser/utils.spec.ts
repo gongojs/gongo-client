@@ -1,5 +1,10 @@
 import * as utils from "./utils";
 
+if (typeof global == "object" && global.window === undefined)
+  // @ts-expect-error: duh
+  // eslint-disable-next-line
+  global.window = {};
+
 describe("utils", () => {
   describe("log", () => {
     it("works with one string arg", () => {
