@@ -2,7 +2,7 @@ import sift from "sift";
 
 import { debounce, debug as gongoDebug } from "./utils";
 import type Collection from "./Collection";
-import type { Document, Query } from "./Collection";
+import type { Document, Query, WithId } from "./Collection";
 import type ChangeStream from "./ChangeStream";
 import type { ChangeStreamEvent } from "./ChangeStream";
 
@@ -26,7 +26,7 @@ export default class Cursor {
   query: ReturnType<typeof sift>;
 
   _id: number;
-  _queryResults: null | Array<Document>;
+  _queryResults: null | Array<WithId<Document>>;
   _query: Query;
   _sortFunc?: SortFunction;
   _needsCount?: boolean;
@@ -40,7 +40,7 @@ export default class Cursor {
         queryResult: null | Array<Document>;
         skip?: number;
         limit?: number;
-        out: Array<Document>;
+        out: Array<WithId<Document>>;
       };
 
   constructor(
@@ -71,7 +71,7 @@ export default class Cursor {
     if (this._queryResults) return this._queryResults;
 
     let count = 0;
-    const out = (this._queryResults = []) as Array<Document>;
+    const out = (this._queryResults = []) as Array<WithId<Document>>;
     for (const pair of this.collection.documents)
       if (this.query(pair[1])) {
         out.push(pair[1]);
@@ -178,7 +178,10 @@ export default class Cursor {
   }
 
   // --- watching ---
-  watch(onUpdate: (docs: Array<Document>) => void, opts: WatchOptions = {}) {
+  watch(
+    onUpdate: (docs: Array<WithId<Document>>) => void,
+    opts: WatchOptions = {}
+  ) {
     let changes: Array<ChangeStreamEvent> = [];
     const context = `${this.collection.name}#${this._id}.watch()`;
     debug(`${context}: init`, this._query);

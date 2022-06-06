@@ -9,6 +9,16 @@ import type Database from "./Database";
 import { debug, randomId } from "./utils";
 import ObjectID from "bson-objectid";
 
+// https://github.com/mongodb/node-mongodb-native/blob/b67af3cd/src/mongo_types.ts#L46 thanks Mongo team
+/** TypeScript Omit (Exclude to be specific) does not work for objects with an "any" indexed type, and breaks discriminated unions @public */
+export type EnhancedOmit<TRecordOrUnion, KeyUnion> =
+  string extends keyof TRecordOrUnion
+    ? TRecordOrUnion // TRecordOrUnion has indexed type e.g. { _id: string; [k: string]: any; } or it is "any"
+    : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    TRecordOrUnion extends any
+    ? Pick<TRecordOrUnion, Exclude<keyof TRecordOrUnion, KeyUnion>> // discriminated unions
+    : never;
+
 export interface CollectionOptions {
   idType?: string;
   isLocalCollection?: boolean;
@@ -17,20 +27,28 @@ export interface CollectionOptions {
 // TODO, get ideas from mongodb interface?
 export interface Document {
   [key: string]: unknown;
-  _id: string;
+  _id?: string;
   __ObjectIDs?: Array<string>;
-  __updatedAt: number;
+  __updatedAt?: number;
 }
 
-//export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
-export type OptId<TSchema> = Omit<TSchema, "_id"> & { _id?: string };
+export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
+export type ServerDoc = Omit<Document, "_id" | "__updatedAt"> & {
+  _id: string;
+  __updatedAt: number;
+};
+
+/*
+export type OptId<TSchema> = EnhancedOmit<TSchema, "_id"> & { _id?: string };
 export type OptUpdated<TSchema> = Omit<TSchema, "__updatedAt"> & {
   __updatedAt?: number;
 };
-export type NewDoc<TSchema> = Omit<TSchema, "_id" | "__updatedAt"> & {
+
+export type NewDoc<TSchema> = EnhancedOmit<TSchema, "_id" | "__updatedAt"> & {
   _id?: string;
   __updatedAt?: number;
 };
+*/
 
 // TODO, copy from mongodb "Filter" interface?
 export interface Query {
@@ -48,7 +66,7 @@ export interface UpdateFilter {
 export default class Collection {
   db: Database;
   name: string;
-  documents: Map<string, Document>;
+  documents: Map<string, WithId<Document>>;
   persists: Array<ReturnType<typeof sift>>;
   changeStreams: Array<ChangeStream>;
   isLocalCollection: boolean;
@@ -67,13 +85,13 @@ export default class Collection {
     this.idType = opts.idType || "ObjectID";
   }
 
-  insertMissingId(doc: NewDoc<Document>) {
+  insertMissingId(doc: Document) {
     if (doc._id) return;
     else if (this.idType === "random") doc._id = Collection.randomId();
     else if (this.idType === "ObjectID") {
       doc._id = ObjectID().toHexString();
       if (!doc.__ObjectIDs) doc.__ObjectIDs = ["_id"];
-      else (doc.__ObjectIDs as Array<string>).push("_id");
+      else doc.__ObjectIDs.push("_id");
     }
   }
 
@@ -153,13 +171,15 @@ export default class Collection {
    * @param  {object} document - document to insert that includes ._id
    * @return {null]}          TODO
    */
-  _insert(document: Document) {
+  _insert(document: WithId<Document>) {
     if (typeof document._id !== "string")
       throw new Error("no doc._id " + JSON.stringify(document));
 
     if (this.documents.has(document._id)) {
       // TODO, throw error.  add upsert support
     }
+
+    // if (!document.__updatedAt) document.__updatedAt = this.db.getTime();
 
     this.documents.set(document._id, document);
 
@@ -175,7 +195,7 @@ export default class Collection {
    * @param  {object} document - document to insert
    * @return {object} document - the inserted document (with _id)
    */
-  insert(document: NewDoc<Document>) {
+  insert(document: Document) {
     const docToInsert = this.isLocalCollection
       ? {
           ...document,
@@ -188,7 +208,7 @@ export default class Collection {
 
     this.insertMissingId(docToInsert);
 
-    this._insert(docToInsert as Document);
+    this._insert(docToInsert as WithId<Document>);
     this._didUpdate();
 
     return docToInsert;
@@ -198,9 +218,9 @@ export default class Collection {
     return new Cursor(this, query, options);
   }
 
-  findOne(id: string): Document | null;
-  findOne(query: Query): Document | null;
-  findOne(query: string | Query): Document | null {
+  findOne(id: string): WithId<Document> | null;
+  findOne(query: Query): WithId<Document> | null;
+  findOne(query: string | Query): WithId<Document> | null {
     if (typeof query === "string") return this.documents.get(query) || null;
 
     const matches = sift(query);
@@ -210,17 +230,16 @@ export default class Collection {
     return null;
   }
 
-  _update(strId: string, newDoc: OptId<Document>) {
+  _update(strId: string, newDoc: Document) {
     if (typeof strId !== "string")
       throw new Error(
         "_update(id, ...) expects string id, not " + JSON.stringify(strId)
       );
 
     newDoc._id = strId;
-    this.documents.set(strId, newDoc as Document);
+    this.documents.set(strId, newDoc as WithId<Document>);
 
-    if (this.shouldPersist(newDoc as Document))
-      this.db.idb.put(this.name, newDoc);
+    if (this.shouldPersist(newDoc)) this.db.idb.put(this.name, newDoc);
 
     // TODO should we assert strId = newDoc._id?
 
@@ -238,7 +257,7 @@ export default class Collection {
     return newDoc;
   }
 
-  updateId(strId: string, newDocOrChanges: NewDoc<Document> | UpdateFilter) {
+  updateId(strId: string, newDocOrChanges: Document | UpdateFilter) {
     const oldDoc = this.documents.get(strId);
 
     if (!oldDoc || oldDoc.__pendingDelete)
@@ -267,7 +286,7 @@ export default class Collection {
 
   update(
     idOrSelector: string | Query,
-    newDocOrChanges: NewDoc<Document> | UpdateFilter
+    newDocOrChanges: Document | UpdateFilter
   ) {
     if (typeof idOrSelector === "string") {
       return this.updateId(idOrSelector, newDocOrChanges);
@@ -300,7 +319,7 @@ export default class Collection {
   }
 
   // TODO, needs more work... what to insert, what to update (just replace doc?)
-  upsert(query: Query, doc: NewDoc<Document>) {
+  upsert(query: Query, doc: Document) {
     const existing = this.findOne(query);
     if (existing) {
       this.update(query, { $set: doc });
@@ -309,7 +328,7 @@ export default class Collection {
     }
   }
 
-  _insertOrReplaceOne(doc: OptUpdated<Document>) {
+  _insertOrReplaceOne(doc: WithId<Document>) {
     if (typeof doc._id !== "string")
       throw new Error(
         "_insertOrReplaceOne, no `_id` field in " + JSON.stringify(doc)

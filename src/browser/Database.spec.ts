@@ -10,7 +10,7 @@ process.on("unhandledRejection", (error, p) => {
 
 import Database from "./Database";
 import { stringifyObjectIDs } from "./Database";
-import type { NewDoc, Document } from "./Collection";
+// import type { Document } from "./Collection";
 import * as utils from "./utils";
 
 describe("stringifyObjectIDs", () => {

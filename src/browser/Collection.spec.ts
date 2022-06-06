@@ -150,7 +150,7 @@ describe("Collection", () => {
     describe("_insert", () => {
       it("inserts a single record", () => {
         const col = new Collection(FakeDb, "test");
-        const doc = { _id: "a" };
+        const doc = { _id: "a", __updatedAt: 1 };
         col._insert(doc);
 
         const result = col.findOne({});
@@ -162,6 +162,7 @@ describe("Collection", () => {
         const docWithoutId = {};
 
         expect(() => {
+          // @ts-expect-error: testing it throws on bad input
           col._insert(docWithoutId);
         }).toThrow();
       });
@@ -518,6 +519,7 @@ describe("Collection", () => {
     describe("_insertOrReplaceOne", () => {
       it("throws on doc without _id", () => {
         const col = new Collection(FakeDb, "test");
+        // @ts-expect-error: specifically testing for bad input
         expect(() => col._insertOrReplaceOne({ a: 1 })).toThrow("_id");
       });
 

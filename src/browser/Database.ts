@@ -6,7 +6,7 @@ import Subscription from "./Subscription";
 const GongoIDB = require("./idb").default;
 const sync = require("./sync");
 
-import type { CollectionOptions, Document } from "./Collection";
+import type { CollectionOptions, ServerDoc } from "./Collection";
 import type { SubscriptionObject, SubscriptionOptions } from "./Subscription";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +37,7 @@ export interface CallResultRaw {
 export interface PublicationResult {
   results?: Array<{
     coll: string;
-    entries: Array<Document>;
+    entries: Array<ServerDoc>;
   }>;
   resultsMeta?: unknown;
 }
