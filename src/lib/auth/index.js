@@ -1,1 +1,0 @@
-module.exports = require("../../ssr/auth/index.js");
