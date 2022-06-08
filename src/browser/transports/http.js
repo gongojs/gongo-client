@@ -1,6 +1,7 @@
 const ARSON = require("arson");
-
 const ObjectID = require("bson-objectid");
+
+const { debug } = require("../utils");
 
 ARSON.registerType("ObjectID", {
   deconstruct: function (id) {
@@ -30,6 +31,7 @@ function fetchWithProgress(url, opts, onProgress) {
       new ReadableStream({
         async start(controller) {
           const reader = response.body.getReader();
+          // eslint-disable-next-line no-constant-condition
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -53,15 +55,15 @@ class HTTPTransport {
     this.options = {
       pollInterval: 2000, // false, // 2000,
       pollWhenIdle: false,
-      idleTimeout: 5000,
+      idleTimeout: 30 * 1000,
       debounceTime: 100,
       url: this.url,
       ...options,
     };
 
-    db.on("updatesFinished", () => this.poll());
-    db.on("subscriptionsChanged", () => this.poll());
-    db.idb.on("collectionsPopulated", () => this.poll());
+    db.on("updatesFinished", () => this.poll("updatesFinished"));
+    db.on("subscriptionsChanged", () => this.poll("subscriptionsChanged"));
+    db.idb.on("collectionsPopulated", () => this.poll("collectionsPopulated"));
 
     this.idleTimer = null;
     this.idleState = false;
@@ -73,7 +75,7 @@ class HTTPTransport {
       if (this.wasPolling) {
         console.log("Idle time ended, resuming polling");
         this.wasPolling = false;
-        this.poll();
+        this.poll("Idle time ended and was polling before");
       }
       this.idleTimer = setTimeout(() => {
         this.idleState = true;
@@ -87,10 +89,20 @@ class HTTPTransport {
   }
 
   setPollTimeout() {
-    this.timeout = setTimeout(() => this.poll(), this.options.pollInterval);
+    if (this.timeout) {
+      console.log(
+        "setPollTimeout() called again during timeout time, skipping..."
+      );
+      return;
+    }
+
+    this.timeout = setTimeout(
+      () => this.poll("setPollTimeout"),
+      this.options.pollInterval
+    );
   }
 
-  poll() {
+  poll(source) {
     if (!this.db.populated) {
       // console.log('Skipping unpopulated poll (will be called again post-population)');
       return;
@@ -101,11 +113,16 @@ class HTTPTransport {
       return this._promise;
     }
 
+    debug(`poll(${source})`);
+
+    // cpoll() might be called directly while a timer is running too
+    clearTimeout(this.timeout);
+
     if (this._debounceTimeout) {
       clearTimeout(this._debounceTimeout);
     }
 
-    return (this._promise = new Promise((resolve, reject) => {
+    return (this._promise = new Promise((resolve) => {
       this._debounceTimeout = setTimeout(() => {
         this._poll().then(() => {
           this._promise = null;
@@ -118,28 +135,18 @@ class HTTPTransport {
   }
 
   async _poll() {
-    // const changeSet = this.db.getChangeSet();
-    // const subscriptions = this.db.getSubscriptions(false);
-    //const methods = this.db.getQueuedMethods();
-
     const changeSet = this.db.getChangeSet();
-    if (changeSet) this.db.call("changeSet", changeSet);
+    if (changeSet) this.db.call("changeSet", changeSet, false);
 
     this.db.runSubscriptions();
 
     const calls = this.db.getAndFlushQueuedCalls();
 
-    const auth = this.db.auth;
-
     const request = { $gongo: 2 };
-    /*
-    if (changeSet)
-      request.changeSet = changeSet;
-    if (subscriptions.length)
-      request.subscriptions = subscriptions;
-    if (auth && auth.authInfoToSend)
-      request.auth = auth.authInfoToSend();
-    */
+
+    const auth = this.db.auth;
+    if (auth && auth.authInfoToSend) request.auth = auth.authInfoToSend();
+
     if (calls.length) {
       request.calls = calls.map((row) => [row.name, row.opts]);
 
@@ -150,8 +157,8 @@ class HTTPTransport {
         // TODO, check again later, and set another poll timer.
       }, 5000);
 
-      const response = await fetchWithProgress(
-        this.url,
+      const response = await fetch(
+        /*WithProgress*/ this.url,
         {
           method: "POST",
           mode: "cors", // no-cors, *cors, same-origin

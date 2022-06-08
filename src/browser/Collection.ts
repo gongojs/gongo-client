@@ -104,7 +104,7 @@ export default class Collection {
 
   _updatesFinished() {
     debug(`collection "${this.name}" updated`);
-    this.db._didUpdate();
+    this.db._didUpdate("Collection._updatesFinished");
   }
 
   // --- Persistance ---

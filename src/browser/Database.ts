@@ -2,7 +2,7 @@ import ObjectID from "bson-objectid";
 
 import Collection from "./Collection";
 import Subscription from "./Subscription";
-// import * as utils from "./utils";
+import { debug } from "./utils";
 const GongoIDB = require("./idb").default;
 const sync = require("./sync");
 
@@ -152,7 +152,9 @@ class Database {
     }
   }
 
-  _didUpdate() {
+  _didUpdate(source: string) {
+    debug(`_didUpdate(${source})`);
+
     if (this._didUpdateTimeout) clearTimeout(this._didUpdateTimeout);
 
     this._didUpdateTimeout = setTimeout(() => this.exec("updatesFinished"), 50);
@@ -199,7 +201,8 @@ class Database {
         try {
           publicationResult = await this.call(
             "subscribe",
-            subReq as unknown as CallOptions
+            subReq as unknown as CallOptions,
+            false
           );
         } catch (error) {
           if (error instanceof Error) {
@@ -301,11 +304,19 @@ class Database {
 
   // --- methods ---
 
-  call(name: string, opts?: CallOptions): Promise<CallResult> {
+  call(
+    name: string,
+    opts?: CallOptions,
+    immediate = true
+  ): Promise<CallResult> {
     return new Promise((resolve, reject) => {
       // const id = utils.randomId();
       this.queuedCalls.push({ name, opts, /*id,*/ resolve, reject });
-      this._didUpdate(); // TODO different queue?
+
+      if (immediate) {
+        // Don't do this for e.g. db.runSubs() because that's called during polls.
+        this._didUpdate("call#" + name); // TODO different queue?
+      }
     });
   }
 
