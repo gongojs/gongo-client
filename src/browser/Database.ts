@@ -340,7 +340,7 @@ class Database {
     const debugResults = { ok: [], fail: [], emptySubs: [] } as {
       ok: Array<DebugResult>;
       fail: Array<DebugResult>;
-      emptySubs: Array<DebugResult>;
+      emptySubs: Array<string>;
     };
 
     if (callResults.length !== waitingCalls.length) {
@@ -363,14 +363,27 @@ class Database {
             (result as PublicationResult).results ||
             (result as PublicationResult).resultsMeta
           )
-        )
-          debugResults.emptySubs.push({
+        ) {
+          const { name, updatedAt, opts } = call.opts as Record<
+            string,
+            unknown
+          >;
+          debugResults.emptySubs.push(
+            /*{
             method: call.name,
             opts: call.opts,
             result: result.$result,
             time: result.time,
-          });
-        else
+          }*/
+            name +
+              (opts
+                ? " " +
+                  JSON.stringify(opts)
+                    .replace(/([{,])"(.*?)"/g, "$1$2")
+                    .replace(/"/g, "'")
+                : "")
+          );
+        } else
           debugResults.ok.push({
             method: call.name,
             opts: call.opts,
