@@ -34,19 +34,35 @@ export interface CallResultRaw {
   time: number;
 }
 
-export interface PublicationResult {
-  results?: Array<{
-    coll: string;
-    entries: Array<ServerDoc>;
-  }>;
-  resultsMeta?: unknown;
-}
-
 export interface QueuedCall {
   name: string;
   opts: unknown;
   resolve: (value: CallResult) => void;
   reject: (reason: unknown) => void;
+}
+
+interface CollectionResults {
+  coll: string;
+  entries: Array<Record<string, unknown>>;
+}
+
+type PublicationResult = Array<CollectionResults>;
+
+interface UpdateRange {
+  coll: string;
+  from: number;
+  to: number;
+}
+
+interface ResultMeta {
+  size: number;
+  updateRanges: Array<UpdateRange>;
+  url: string;
+}
+
+interface PublicationResponse {
+  results?: PublicationResult;
+  resultsMeta?: ResultMeta;
 }
 
 // export type DocWithObjectIds = Omit<Document, "_id">;
@@ -197,9 +213,9 @@ class Database {
   async runSubscriptions() {
     await Promise.all(
       this.getSubscriptions(false).map(async (subReq) => {
-        let publicationResult: PublicationResult;
+        let callResult;
         try {
-          publicationResult = await this.call(
+          callResult = await this.call(
             "subscribe",
             subReq as unknown as CallOptions,
             false
@@ -223,7 +239,8 @@ class Database {
           return;
         }
 
-        const results = publicationResult.results;
+        const pubRes = callResult as PublicationResponse;
+        const results = pubRes.results;
         if (!results) return;
 
         const hash = Subscription.toHash(subReq.name, subReq.opts);
@@ -237,24 +254,34 @@ class Database {
         }
 
         //const slug =  sub.name, sub.opts
-        for (const pair of results) {
-          // pair ~= { coll, entries }
-
-          const coll = this.collection(pair.coll);
-          let collUpdatedAt = sub.updatedAt[pair.coll] || 0;
-          for (const entry of pair.entries) {
+        for (const { coll: collName, entries } of results) {
+          const coll = this.collection(collName);
+          let collUpdatedAt = sub.updatedAt[collName] || 0;
+          for (const _entry of entries) {
+            const entry = _entry as ServerDoc;
             // entry ~= [ { _id: "", __updatedAt: "", blah: "str" }, {}, ... ]
-            //
+
             stringifyObjectIDs(entry);
 
-            if (entry.__updatedAt > collUpdatedAt)
+            if (
+              typeof entry.__updatedAt === "number" &&
+              entry.__updatedAt > collUpdatedAt
+            )
               collUpdatedAt = entry.__updatedAt;
+
+            if (typeof entry._id !== "string") {
+              console.error(
+                "runSubscriptions() received doc without _id: " +
+                  JSON.stringify(entry)
+              );
+              break;
+            }
 
             if (entry.__deleted) coll._remove(entry._id);
             else coll._insert(entry);
           }
 
-          sub.updatedAt[pair.coll] = collUpdatedAt;
+          sub.updatedAt[collName] = collUpdatedAt;
         }
       })
     );
@@ -357,42 +384,40 @@ class Database {
       if (result.$result !== undefined) {
         // console.log(`> ${call.name}(${JSON.stringify(call.opts)})`);
         // console.log(result.$result);
-        if (
-          call.name === "subscribe" &&
-          !(
-            (result as PublicationResult).results ||
-            (result as PublicationResult).resultsMeta
-          )
-        ) {
-          const { name, updatedAt, opts } = call.opts as Record<
-            string,
-            unknown
-          >;
-          debugResults.emptySubs.push(
-            /*{
-            method: call.name,
-            opts: call.opts,
-            result: result.$result,
-            time: result.time,
-          }*/
-            name +
-              (opts
-                ? " " +
-                  JSON.stringify(opts)
-                    .replace(/([{,])"(.*?)"/g, "$1$2")
-                    .replace(/"/g, "'")
-                : "")
-          );
-        } else
-          debugResults.ok.push({
-            method: call.name,
-            opts: call.opts,
-            result: result.$result,
-            time: result.time,
-          });
+
+        if (call.name === "subscribe") {
+          const pubRes = result.$result as PublicationResponse;
+          if (
+            !(pubRes.results || pubRes.resultsMeta) ||
+            (pubRes.results && pubRes.results.length === 0)
+          ) {
+            const { name, opts } = call.opts as Record<string, unknown>;
+            debugResults.emptySubs.push(
+              name +
+                (opts
+                  ? " " +
+                    JSON.stringify(opts)
+                      .replace(/([{,])"(.*?)"/g, "$1$2")
+                      .replace(/"/g, "'")
+                  : "")
+            );
+
+            call.resolve(result.$result as CallResult);
+            continue;
+          }
+        }
+
+        debugResults.ok.push({
+          method: call.name,
+          opts: call.opts,
+          result: result.$result,
+          time: result.time,
+        });
+
         call.resolve(result.$result as CallResult);
       } else if (result.$error !== undefined) {
         call.reject(result.$error);
+
         debugResults.ok.push({
           method: call.name,
           opts: call.opts,
