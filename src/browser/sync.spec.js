@@ -1,3 +1,6 @@
+// TODO: what actually trigers IndexedDB stuff in this suite?
+require("fake-indexeddb/auto");
+
 const sync = require("./sync");
 const Database = require("./Database").default;
 
@@ -78,7 +81,10 @@ describe("sync", () => {
   });
 
   describe("getChangeSet", () => {
-    const FakeDb = { name: "FakeDb" /* , getTime() { return Date.now(); } */ };
+    const FakeDb = {
+      name: "FakeDb" /* , getTime() { return Date.now(); } */,
+      _didUpdate() {},
+    };
 
     describe("inserts", () => {
       it("works with one insert", () => {
