@@ -158,7 +158,7 @@ describe("Database", () => {
       db.on("updatesFinished", callback);
       jest.useFakeTimers();
 
-      db._didUpdate();
+      db._didUpdate(expect.getState().currentTestName);
       expect(callback).not.toBeCalled();
       jest.runAllTimers();
       expect(callback).toBeCalled();
@@ -176,7 +176,7 @@ describe("Database", () => {
       db._didUpdateTimeout = existingCallbackToBeCleared;
       // @ts-expect-error: stub
       db._updatesFinished = jest.fn();
-      db._didUpdate();
+      db._didUpdate(expect.getState().currentTestName);
       jest.runAllTimers();
       expect(existingCallbackToBeCleared).not.toBeCalled();
     });
