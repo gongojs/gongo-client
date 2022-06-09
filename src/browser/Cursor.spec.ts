@@ -2,6 +2,7 @@ import Collection from "./Collection";
 import Cursor from "./Cursor";
 import type Database from "./Database";
 import type ChangeStream from "./ChangeStream";
+import { jest } from "@jest/globals";
 
 describe("Cursor", () => {
   const FakeDb = {
@@ -9,6 +10,7 @@ describe("Cursor", () => {
     getTime() {
       return Date.now();
     },
+    _didUpdate: jest.fn(),
   } as unknown as Database;
 
   const col = new Collection(FakeDb, "test");
