@@ -61,18 +61,18 @@ describe("Database", () => {
       expect(db).toBeInstanceOf(Database);
     });
 
-    it("defines getChangeSet", () => {
+    it("defines runChangeSet", () => {
       // eslint-disable-next-line
       const sync = require("./sync");
       const db = new Database();
 
-      const origGetChangeSet = sync.getChangeSet;
-      sync.getChangeSet = jest.fn();
+      const origRunChangeSet = sync.runChangeSet;
+      sync.runChangeSet = jest.fn();
 
-      db.getChangeSet();
-      expect(sync.getChangeSet).toHaveBeenCalled();
+      db.runChangeSet();
+      expect(sync.runChangeSet).toHaveBeenCalled();
 
-      sync.getChangeSet = origGetChangeSet;
+      sync.runChangeSet = origRunChangeSet;
     });
   });
 

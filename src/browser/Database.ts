@@ -110,7 +110,7 @@ class Database {
   idb: typeof GongoIDB;
   gongoStore: Collection;
   persistedQueriesExist?: boolean;
-  getChangeSet: () => unknown; // TODO, ChangeSet type
+  runChangeSet: () => void;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
 
   static Collection = Collection;
@@ -135,7 +135,7 @@ class Database {
     });
     if (!opts.gongoStoreNoPersist) this.gongoStore.persist({});
 
-    this.getChangeSet = () => sync.getChangeSet(this);
+    this.runChangeSet = () => sync.runChangeSet(this);
   }
 
   on(event: string, callback: DatabaseCallback) {

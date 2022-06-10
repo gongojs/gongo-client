@@ -135,9 +135,7 @@ class HTTPTransport {
   }
 
   async _poll() {
-    const changeSet = this.db.getChangeSet();
-    if (changeSet) this.db.call("changeSet", changeSet, false);
-
+    this.db.runChangeSet();
     this.db.runSubscriptions();
 
     const calls = this.db.getAndFlushQueuedCalls();

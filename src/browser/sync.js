@@ -54,6 +54,8 @@ const sync = {
   getChangeSet(db) {
     const changeSet = {};
 
+    // TODO, lock entries until return?
+
     db.collections.forEach((coll) => {
       if (coll.isLocalCollection) return;
 
@@ -93,6 +95,61 @@ const sync = {
     });
 
     return Object.keys(changeSet).length === 0 ? null : changeSet;
+  },
+
+  async runChangeSet(db) {
+    const changeSet = sync.getChangeSet(db);
+    if (!changeSet) return;
+
+    for (const [collName, ops] of Object.entries(changeSet)) {
+      const collection = db.collection(collName);
+      for (const [op, data] of Object.entries(ops)) {
+        if (op === "insert" || op === "update") {
+          const result =
+            op === "insert"
+              ? await db.call(op, { coll: collName, docs: data })
+              : await db.call(op, {
+                  coll: collName,
+                  updates: data,
+                });
+          const errorIds = [];
+          if (result.$errors) {
+            for (const [id, error] of result.$errors) {
+              errorIds.push(id);
+              collection._update(id, {
+                ...collection.findOne(id),
+                __error: error,
+              });
+            }
+          }
+          for (const sentDoc of data) {
+            const id = sentDoc._id.toString();
+            if (errorIds.includes(id)) continue;
+            const doc = collection.findOne(id);
+            delete doc.__pendingSince;
+            delete doc.__pendingInsert;
+            delete doc.__pendingBase;
+            collection._update(doc._id, doc);
+          }
+        } else if (op === "delete") {
+          const result = await db.call("remove", { coll: collName, ids: data });
+          const errorIds = [];
+          if (result.$errors) {
+            for (const [id, error] of result.$errors) {
+              errorIds.push(id);
+              collection._update(id, {
+                ...collection.findOne(id),
+                __error: error,
+              });
+            }
+          }
+          for (const _id of data) {
+            const id = _id.toString();
+            if (!errorIds.includes(id)) collection._remove(id);
+          }
+        } else console.error(`Skipping unknown op "${op}"`);
+      }
+    }
   },
 };
 
