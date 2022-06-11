@@ -111,6 +111,7 @@ class Database {
   gongoStore: Collection;
   persistedQueriesExist?: boolean;
   runChangeSet: () => void;
+  getChangeSet: () => Record<string, unknown>;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
 
   static Collection = Collection;
@@ -135,6 +136,7 @@ class Database {
     });
     if (!opts.gongoStoreNoPersist) this.gongoStore.persist({});
 
+    this.getChangeSet = () => sync.getChangeSet(this);
     this.runChangeSet = () => sync.runChangeSet(this);
   }
 
