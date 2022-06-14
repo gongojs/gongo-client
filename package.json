@@ -21,6 +21,7 @@
     "minimongo"
   ],
   "devDependencies": {
+    "@types/debug": "^4.1.7",
     "@types/jest": "^28.1.0",
     "@typescript-eslint/eslint-plugin": "^5.27.0",
     "@typescript-eslint/parser": "^5.27.0",
@@ -41,7 +42,6 @@
     "prepublishOnly": "yarn build"
   },
   "dependencies": {
-    "@types/debug": "^4.1.7",
     "arson": "^0.2.6",
     "bson-objectid": "^2.0.3",
     "debug": "^4.3.4",
