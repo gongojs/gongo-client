@@ -9,6 +9,7 @@
     "url": "https://github.com/gongojs/gongo-client"
   },
   "main": "lib/ssr/index.js",
+  "types": "lib/index.d.ts",
   "browser": {
     "lib/ssr/index.js": "./lib/browser/index.js",
     "lib/ssr/transports/http.js": "./lib/browser/transports/http.js",
