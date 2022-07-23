@@ -1,5 +1,7 @@
 class Cursor<DocType> {
   collection: Collection<DocType>;
+  _skip?: number;
+  _limit?: number;
 
   constructor(collection: Collection<DocType>) {
     this.collection = collection;
@@ -16,7 +18,7 @@ class Cursor<DocType> {
   }
 }
 
-class Collection<DocType = Record<string,unknown>> {
+class Collection<DocType = Record<string, unknown>> {
   constructor(name: string) {
     //
   }
@@ -27,13 +29,13 @@ class Collection<DocType = Record<string,unknown>> {
 }
 
 class Database {
-  extend(name: string, extension: unknown, options?: Record<string,unknown>) {
+  extend(name: string, extension: unknown, options?: Record<string, unknown>) {
     //
   }
   collection(name: string) {
     return new Collection(name);
   }
-  subscribe(name: string, opts?: Record<string,unknown>) {
+  subscribe(name: string, opts?: Record<string, unknown>) {
     //
   }
 }
