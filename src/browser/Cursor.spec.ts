@@ -1,5 +1,6 @@
 import Collection from "./Collection";
 import Cursor from "./Cursor";
+import type { Document } from "./Collection";
 import type Database from "./Database";
 import type ChangeStream from "./ChangeStream";
 import { jest } from "@jest/globals";
@@ -19,7 +20,7 @@ describe("Cursor", () => {
 
   describe("constructor", () => {
     it("instantiates", () => {
-      const collection = {} as unknown as Collection;
+      const collection = {} as unknown as Collection<Document>;
       const query = { a: 1 };
       const options = {};
       const cursor = new Cursor(collection, query, options);
@@ -31,14 +32,16 @@ describe("Cursor", () => {
     it("modifies query on options.includePendingDeletes", () => {
       let cursor;
 
-      cursor = new Cursor({} as unknown as Collection, { type: "banana" });
+      cursor = new Cursor({} as unknown as Collection<Document>, {
+        type: "banana",
+      });
       expect(cursor._query).toEqual({
         type: "banana",
         __pendingDelete: { $exists: false },
       });
 
       cursor = new Cursor(
-        {} as unknown as Collection,
+        {} as unknown as Collection<Document>,
         { type: "banana" },
         { includePendingDeletes: true }
       );
@@ -50,7 +53,7 @@ describe("Cursor", () => {
 
   describe("slug", () => {
     it("returns name#queryJSON", () => {
-      const coll = { name: "test" } as unknown as Collection;
+      const coll = { name: "test" } as unknown as Collection<Document>;
       const query = { a: 1 };
       const cursor = new Cursor(coll, query);
       expect(cursor.slug()).toBe(`${coll.name}#${JSON.stringify(query)}`);
@@ -59,7 +62,7 @@ describe("Cursor", () => {
 
   describe("_resultsSync()", () => {
     it("should return cache", () => {
-      const coll = { name: "test" } as unknown as Collection;
+      const coll = { name: "test" } as unknown as Collection<Document>;
       const cache = {};
       const cursor = new Cursor(coll);
       // @ts-expect-error: stub
@@ -74,7 +77,7 @@ describe("Cursor", () => {
           [2, 2],
           [3, 3],
         ],
-      } as unknown as Collection;
+      } as unknown as Collection<Document>;
       const cursor = new Cursor(coll).limit(2);
       const results = cursor._resultsSync();
       expect(results.length).toBe(2);
@@ -88,7 +91,7 @@ describe("Cursor", () => {
         [2, 2],
         [3, 3],
       ],
-    } as unknown as Collection;
+    } as unknown as Collection<Document>;
 
     it("returns count of matching documents", () => {
       const cursor = new Cursor(coll);
@@ -150,7 +153,7 @@ describe("Cursor", () => {
   });
 
   describe("sort", () => {
-    const coll = {} as unknown as Collection;
+    const coll = {} as unknown as Collection<Document>;
 
     it("works for strKey asc", () => {
       const cursor = new Cursor(coll);
@@ -307,9 +310,11 @@ describe("Cursor", () => {
 
     describe("unwatch", () => {
       it("closes all cursor's changeStreams", () => {
-        const cursor = new Cursor({ name: "test" } as unknown as Collection);
-        const cs1 = { close: jest.fn() } as unknown as ChangeStream;
-        const cs2 = { close: jest.fn() } as unknown as ChangeStream;
+        const cursor = new Cursor({
+          name: "test",
+        } as unknown as Collection<Document>);
+        const cs1 = { close: jest.fn() } as unknown as ChangeStream<Document>;
+        const cs2 = { close: jest.fn() } as unknown as ChangeStream<Document>;
         cursor.changeStreams.push(cs1);
         cursor.changeStreams.push(cs2);
         cursor.unwatch();

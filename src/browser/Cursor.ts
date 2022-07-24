@@ -18,17 +18,20 @@ export interface WatchOptions {
   debounce?: number | false;
 }
 
-export type SortFunction = (a: Document, b: Document) => number;
+export type SortFunction<DocType extends Document> = (
+  a: WithId<DocType>,
+  b: WithId<DocType>
+) => number;
 
-export default class Cursor {
-  collection: Collection;
-  changeStreams: Array<ChangeStream>;
+export default class Cursor<DocType extends Document> {
+  collection: Collection<DocType>;
+  changeStreams: Array<ChangeStream<DocType>>;
   query: ReturnType<typeof sift>;
 
   _id: number;
-  _queryResults: null | Array<WithId<Document>>;
+  _queryResults: null | Array<WithId<DocType>>;
   _query: Query;
-  _sortFunc?: SortFunction;
+  _sortFunc?: SortFunction<DocType>;
   _needsCount?: boolean;
   _skip?: number;
   _limit?: number;
@@ -37,14 +40,14 @@ export default class Cursor {
   _toArraySyncCache:
     | Record<string, never>
     | {
-        queryResult: null | Array<Document>;
+        queryResult: null | Array<WithId<DocType>>;
         skip?: number;
         limit?: number;
-        out: Array<WithId<Document>>;
+        out: Array<WithId<DocType>>;
       };
 
   constructor(
-    collection: Collection,
+    collection: Collection<DocType>,
     query: Query = {},
     options: CursorOptions = {}
   ) {
@@ -71,7 +74,7 @@ export default class Cursor {
     if (this._queryResults) return this._queryResults;
 
     let count = 0;
-    const out = (this._queryResults = []) as Array<WithId<Document>>;
+    const out = (this._queryResults = []) as Array<WithId<DocType>>;
     for (const pair of this.collection.documents)
       if (this.query(pair[1])) {
         out.push(pair[1]);
@@ -179,7 +182,7 @@ export default class Cursor {
 
   // --- watching ---
   watch(
-    onUpdate: (docs: Array<WithId<Document>>) => void,
+    onUpdate: (docs: Array<WithId<DocType>>) => void,
     opts: WatchOptions = {}
   ) {
     let changes: Array<ChangeStreamEvent> = [];
@@ -241,7 +244,7 @@ export default class Cursor {
     // @ts-expect-error: it's ok, we don't use the ChangeStreamEvent
     cs.on("populateEnd", update);
 
-    cs.on("change", (change) => {
+    cs.on("change", (change?: ChangeStreamEvent) => {
       //debug(`queued change ${this.collection.name}#${this._id}`, change);
       if (!change)
         throw new Error(
@@ -298,7 +301,7 @@ export default class Cursor {
   }
   */
 
-  findAndWatch(callback: (docs: Array<Document>) => void) {
+  findAndWatch(callback: (docs: Array<WithId<DocType>>) => void) {
     const data = this.watch(callback);
     if (data) callback(data);
   }

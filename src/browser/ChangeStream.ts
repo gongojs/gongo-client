@@ -1,4 +1,5 @@
 import type Collection from "./Collection";
+import type { Document } from "./Collection";
 
 export interface ChangeStreamEvent {
   [key: string]: unknown;
@@ -7,14 +8,14 @@ export interface ChangeStreamEvent {
   documentKey: { _id: string };
 }
 
-export type ChangeStreamCallback = (obj?: ChangeStreamEvent) => void;
+export type ChangeStreamCallback = (change?: ChangeStreamEvent) => void;
 
-export default class ChangeStream {
-  collection?: Collection;
+export default class ChangeStream<DocType extends Document> {
+  collection?: Collection<DocType>;
   callbacks: Record<string, Array<ChangeStreamCallback>>;
   _isClosed = false;
 
-  constructor(collection?: Collection) {
+  constructor(collection?: Collection<DocType>) {
     this.collection = collection;
     this.callbacks = {
       change: [],

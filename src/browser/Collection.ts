@@ -30,10 +30,19 @@ export interface Document {
   _id?: string;
   __ObjectIDs?: Array<string>;
   __updatedAt?: number;
+  __pendingDelete?: boolean;
+  __pendingSince?: Date;
+  __pendingBase?: Document; // TODO, Omit<Document, "__updatedAt" | "__" etc
+  __pendingInsert?: boolean;
 }
 
-export type WithId<TSchema> = Omit<TSchema, "_id"> & { _id: string };
-export type ServerDoc = Omit<Document, "_id" | "__updatedAt"> & {
+export type WithId<DocType extends Document> = EnhancedOmit<DocType, "_id"> & {
+  _id: string;
+};
+export type ServerDoc<DocType extends Document> = EnhancedOmit<
+  DocType,
+  "_id" | "__updatedAt"
+> & {
   _id: string;
   __updatedAt: number;
 };
@@ -63,12 +72,12 @@ export interface UpdateFilter {
   $set?: Record<string, unknown>;
 }
 
-export default class Collection {
+export default class Collection<DocType extends Document> {
   db: Database;
   name: string;
-  documents: Map<string, WithId<Document>>;
+  documents: Map<string, WithId<DocType>>;
   persists: Array<ReturnType<typeof sift>>;
-  changeStreams: Array<ChangeStream>;
+  changeStreams: Array<ChangeStream<DocType>>;
   isLocalCollection: boolean;
   idType: string;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
@@ -85,7 +94,7 @@ export default class Collection {
     this.idType = opts.idType || "ObjectID";
   }
 
-  insertMissingId(doc: Document) {
+  insertMissingId(doc: DocType) {
     if (doc._id) return;
     else if (this.idType === "random") doc._id = Collection.randomId();
     else if (this.idType === "ObjectID") {
@@ -115,7 +124,7 @@ export default class Collection {
     this.db.idb.checkInit();
   }
 
-  shouldPersist(doc: Document) {
+  shouldPersist(doc: WithId<DocType>) {
     for (const query of this.persists) {
       if (query(doc)) return true;
     }
@@ -125,7 +134,7 @@ export default class Collection {
   // --- ChangeStreams
 
   watch() {
-    const cs = new ChangeStream(this);
+    const cs = new ChangeStream<DocType>(this);
     this.changeStreams.push(cs);
     cs.on(
       "close",
@@ -171,7 +180,7 @@ export default class Collection {
    * @param  {object} document - document to insert that includes ._id
    * @return {null]}          TODO
    */
-  _insert(document: WithId<Document>) {
+  _insert(document: WithId<DocType>) {
     if (typeof document._id !== "string")
       throw new Error("no doc._id " + JSON.stringify(document));
 
@@ -195,7 +204,7 @@ export default class Collection {
    * @param  {object} document - document to insert
    * @return {object} document - the inserted document (with _id)
    */
-  insert(document: Document) {
+  insert(document: DocType) {
     const docToInsert = this.isLocalCollection
       ? {
           ...document,
@@ -208,7 +217,7 @@ export default class Collection {
 
     this.insertMissingId(docToInsert);
 
-    this._insert(docToInsert as WithId<Document>);
+    this._insert(docToInsert as WithId<DocType>);
     this._didUpdate();
 
     return docToInsert;
@@ -218,9 +227,9 @@ export default class Collection {
     return new Cursor(this, query, options);
   }
 
-  findOne(id: string): WithId<Document> | null;
-  findOne(query: Query): WithId<Document> | null;
-  findOne(query: string | Query): WithId<Document> | null {
+  findOne(id: string): WithId<DocType> | null;
+  findOne(query: Query): WithId<DocType> | null;
+  findOne(query: string | Query): WithId<DocType> | null {
     if (typeof query === "string") return this.documents.get(query) || null;
 
     const matches = sift(query);
@@ -230,14 +239,15 @@ export default class Collection {
     return null;
   }
 
-  _update(strId: string, newDoc: Document) {
+  _update(strId: string, newDoc: DocType | WithId<DocType>) {
     if (typeof strId !== "string")
       throw new Error(
         "_update(id, ...) expects string id, not " + JSON.stringify(strId)
       );
 
     newDoc._id = strId;
-    this.documents.set(strId, newDoc as WithId<Document>);
+    newDoc = newDoc as WithId<DocType>;
+    this.documents.set(strId, newDoc);
 
     if (this.shouldPersist(newDoc)) this.db.idb.put(this.name, newDoc);
 
@@ -257,7 +267,7 @@ export default class Collection {
     return newDoc;
   }
 
-  updateId(strId: string, newDocOrChanges: Document | UpdateFilter) {
+  updateId(strId: string, newDocOrChanges: DocType | UpdateFilter) {
     const oldDoc = this.documents.get(strId);
 
     if (!oldDoc || oldDoc.__pendingDelete)
@@ -286,7 +296,7 @@ export default class Collection {
 
   update(
     idOrSelector: string | Query,
-    newDocOrChanges: Document | UpdateFilter
+    newDocOrChanges: DocType | UpdateFilter
   ) {
     if (typeof idOrSelector === "string") {
       return this.updateId(idOrSelector, newDocOrChanges);
@@ -319,7 +329,7 @@ export default class Collection {
   }
 
   // TODO, needs more work... what to insert, what to update (just replace doc?)
-  upsert(query: Query, doc: Document) {
+  upsert(query: Query, doc: DocType) {
     const existing = this.findOne(query);
     if (existing) {
       this.update(query, { $set: doc });
@@ -328,7 +338,7 @@ export default class Collection {
     }
   }
 
-  _insertOrReplaceOne(doc: WithId<Document>) {
+  _insertOrReplaceOne(doc: WithId<DocType>) {
     if (typeof doc._id !== "string")
       throw new Error(
         "_insertOrReplaceOne, no `_id` field in " + JSON.stringify(doc)

@@ -85,8 +85,8 @@ describe("Collection", () => {
       const db = { idb: { checkInit() {} } } as unknown as Database;
       const col = new Collection(db, "test");
       col.persist({ type: "apple" });
-      expect(col.shouldPersist({ type: "apple" })).toBe(true);
-      expect(col.shouldPersist({ type: "banana" })).toBe(false);
+      expect(col.shouldPersist({ _id: "a", type: "apple" })).toBe(true);
+      expect(col.shouldPersist({ _id: "b", type: "banana" })).toBe(false);
     });
   });
 
@@ -470,7 +470,7 @@ describe("Collection", () => {
         const update = { $set: { type: "banana " } };
         col.updateId = jest
           .fn<typeof col.updateId>()
-          .mockReturnValueOnce({})
+          .mockReturnValueOnce({ _id: "str" })
           .mockReturnValueOnce(false);
 
         const result = col.update({ type: "apple" }, update);

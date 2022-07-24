@@ -1,6 +1,7 @@
 import ObjectID from "bson-objectid";
 
 import Collection from "./Collection";
+import type { Document } from "./Collection";
 import Subscription from "./Subscription";
 import { debug } from "./utils";
 const GongoIDB = require("./idb").default;
@@ -102,13 +103,13 @@ function stringifyObjectIDsOld(entry: Record<string, unknown>) {
 
 class Database {
   name: string;
-  collections: Map<string, Collection>;
+  collections: Map<string, Collection<Document>>;
   subscriptions: Map<string, Subscription>;
   extensions: Record<string, unknown>;
   queuedCalls: Array<QueuedCall>;
   callbacks: Record<string, Array<DatabaseCallback>>;
   idb: typeof GongoIDB;
-  gongoStore: Collection;
+  gongoStore: Collection<Document>;
   persistedQueriesExist?: boolean;
   runChangeSet: () => void;
   getChangeSet: () => Record<string, unknown>;
@@ -260,7 +261,7 @@ class Database {
           const coll = this.collection(collName);
           let collUpdatedAt = sub.updatedAt[collName] || 0;
           for (const _entry of entries) {
-            const entry = _entry as ServerDoc;
+            const entry = _entry as ServerDoc<Document>;
             // entry ~= [ { _id: "", __updatedAt: "", blah: "str" }, {}, ... ]
 
             stringifyObjectIDs(entry);
