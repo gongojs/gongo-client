@@ -1,8 +1,12 @@
-const Database = require("./Database").default;
+import Database from "./Database";
+import Collection from "./Collection";
+import { Document } from "./Collection";
+import Cursor from "./Cursor";
 
 const db = new Database();
 
-module.exports = db;
+export { Database, Collection, Cursor, Document };
+export default db;
 
 /*
   TODO

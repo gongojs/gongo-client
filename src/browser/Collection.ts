@@ -81,6 +81,7 @@ export default class Collection<DocType extends Document> {
   isLocalCollection: boolean;
   idType: string;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
+  populated: boolean; // set to true by idb
   static randomId = randomId;
   static Cursor = Cursor;
 
@@ -92,6 +93,7 @@ export default class Collection<DocType extends Document> {
     this.changeStreams = [];
     this.isLocalCollection = opts.isLocalCollection || false;
     this.idType = opts.idType || "ObjectID";
+    this.populated = false;
   }
 
   insertMissingId(doc: DocType) {

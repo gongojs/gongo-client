@@ -114,6 +114,7 @@ class Database {
   runChangeSet: () => void;
   getChangeSet: () => Record<string, unknown>;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
+  populated: boolean; // set to true by idb
 
   static Collection = Collection;
 
@@ -123,6 +124,7 @@ class Database {
     this.subscriptions = new Map();
     this.extensions = {};
     this.queuedCalls = [];
+    this.populated = false;
 
     this.callbacks = {
       updatesFinished: [],
@@ -464,7 +466,7 @@ class Database {
 
   /* modules / extensions */
 
-  extend(name: string, Class: Class, options: Record<string, unknown>) {
+  extend(name: string, Class: Class, options?: Record<string, unknown>) {
     // TODO, only allow up until a certain point and then lock.
     // @ts-expect-error: figure out correct ts way to do this <T extends something> i guess :)
     this[name] = this.extensions[name] = new Class(this, options);
