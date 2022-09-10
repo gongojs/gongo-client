@@ -133,6 +133,15 @@ class Database {
 
     this.idb = new GongoIDB(this);
     this.idb.on("collectionsPopulated", () => this.populateSubscriptions());
+    this.idb.on("collectionsPopulated", () => {
+      // On reload, let's try all failed requests again.
+      this.collections.forEach((collection) =>
+        collection.update(
+          { __error: { $exists: true } },
+          { $unset: { __error: true } }
+        )
+      );
+    });
 
     this.gongoStore = this.collection("__gongoStore", {
       isLocalCollection: true,

@@ -61,7 +61,7 @@ const sync = {
 
       const results = coll
         .find(
-          { __pendingSince: { $exists: true } },
+          { __pendingSince: { $exists: true }, __error: { $exists: false } },
           { includePendingDeletes: true }
         )
         .toArraySync();
@@ -114,10 +114,12 @@ const sync = {
                 });
           const errorIds = [];
           if (result.$errors) {
+            console.error(`Marked op errors for ${collName}.${op}():`);
             for (const [id, error] of result.$errors) {
-              errorIds.push(id);
-              collection._update(id, {
-                ...collection.findOne(id),
+              console.error({ id: id.toString(), error });
+              errorIds.push(id.toString());
+              collection._update(id.toString(), {
+                ...collection.findOne(id.toString()),
                 __error: error,
               });
             }
@@ -135,10 +137,12 @@ const sync = {
           const result = await db.call("remove", { coll: collName, ids: data });
           const errorIds = [];
           if (result.$errors) {
+            console.error(`Marked op errors for ${collName}.${op}():`);
             for (const [id, error] of result.$errors) {
-              errorIds.push(id);
-              collection._update(id, {
-                ...collection.findOne(id),
+              console.error({ id: id.toString(), error });
+              errorIds.push(id.toString());
+              collection._update(id.toString(), {
+                ...collection.findOne(id.toString()),
                 __error: error,
               });
             }
