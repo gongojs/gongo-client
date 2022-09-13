@@ -70,6 +70,7 @@ export interface FindOptions {
 
 export interface UpdateFilter {
   $set?: Record<string, unknown>;
+  $inc?: Record<string, unknown>;
 }
 
 export default class Collection<DocType extends Document> {
