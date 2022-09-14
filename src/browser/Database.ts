@@ -2,8 +2,9 @@ import ObjectID from "bson-objectid";
 
 import Collection from "./Collection";
 import type { Document } from "./Collection";
-import Subscription from "./Subscription";
+import Subscription, { SubscriptionOptions } from "./Subscription";
 import { debug } from "./utils";
+import Scheduler from "./scheduler";
 const GongoIDB = require("./idb").default;
 const sync = require("./sync");
 
@@ -115,6 +116,7 @@ class Database {
   getChangeSet: () => Record<string, unknown>;
   _didUpdateTimeout?: ReturnType<typeof setTimeout>;
   populated: boolean; // set to true by idb
+  scheduler: Scheduler;
 
   static Collection = Collection;
 
@@ -125,6 +127,7 @@ class Database {
     this.extensions = {};
     this.queuedCalls = [];
     this.populated = false;
+    this.scheduler = new Scheduler(this.subscriptions);
 
     this.callbacks = {
       updatesFinished: [],
@@ -199,8 +202,12 @@ class Database {
     return coll;
   }
 
-  subscribe(name: string, args?: SubscriptionArguments) {
-    const sub = new Subscription(this, name, args);
+  subscribe(
+    name: string,
+    args?: SubscriptionArguments,
+    opts?: SubscriptionOptions
+  ) {
+    const sub = new Subscription(this, name, args, opts);
     const hash = sub.hash();
 
     const existing = this.subscriptions.get(hash);
@@ -224,9 +231,26 @@ class Database {
       .map((sub) => sub.toObject());
   }
 
+  getSubscriptionsToRun() {
+    let toRun: Array<Subscription> = [];
+
+    // Subscriptions with no opts ( {min,max}Interval )
+    for (const [_key, sub] of this.subscriptions) {
+      if (sub.active && !sub.opts) toRun.push(sub);
+    }
+
+    // From scheduler
+    toRun = toRun.concat(this.scheduler.findAndUpdate());
+
+    return toRun.map((sub) => sub.toObject());
+  }
+
   async runSubscriptions() {
+    const subcriptions = this.getSubscriptionsToRun();
+    if (!subcriptions.length) return;
+
     await Promise.all(
-      this.getSubscriptions(false).map(async (subReq) => {
+      subcriptions.map(async (subReq) => {
         let callResult;
         try {
           callResult = await this.call(

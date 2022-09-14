@@ -19,6 +19,7 @@ describe("Subscription", () => {
         expect(sub.toObject().args).toBeUndefined();
       });
 
+      /*
       it("includes opts if they exist", () => {
         const sub = new Subscription(
           fakeDb,
@@ -36,6 +37,7 @@ describe("Subscription", () => {
         const sub = new Subscription(fakeDb, "test");
         expect(sub.toObject().opts).toBeUndefined();
       });
+      */
     }); /* toObject() */
 
     describe("hash()", () => {

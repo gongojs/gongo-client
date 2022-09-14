@@ -46,7 +46,7 @@ export default class Subscription {
     // return Object.assign({}, this);
     const obj: Partial<SubscriptionObject> = { name: this.name };
     if (this.args) obj.args = this.args;
-    if (this.opts) obj.opts = this.opts;
+    // if (this.opts) obj.opts = this.opts;  no need to save this.
     if (this.updatedAt) obj.updatedAt = this.updatedAt;
     return obj as SubscriptionObject;
   }

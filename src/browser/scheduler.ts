@@ -14,7 +14,7 @@ export default class Scheduler {
     this.lastRun = 0;
   }
 
-  findAndUpdate({ now = Date.now() }: { now: number }) {
+  findAndUpdate({ now = Date.now() }: { now?: number } = {}) {
     let atleastOne = false;
     for (const [_slug, sub] of this.subscriptions) {
       if (

@@ -27,7 +27,7 @@ describe("Scheduler", () => {
   });
 
   it("works", () => {
-    let now: number, run: Subscription[];
+    let now: number, run: string[];
     const scheduler = new Scheduler(subs);
 
     now = 2000;
