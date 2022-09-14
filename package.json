@@ -1,6 +1,6 @@
 {
   "name": "gongo-client",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "author": "Gadi Cohen <dragon@wastelands.net>",
   "description": "DX focused in-browser database with offline and realtime",
   "license": "MIT",
