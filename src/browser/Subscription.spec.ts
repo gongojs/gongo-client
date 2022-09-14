@@ -11,12 +11,12 @@ describe("Subscription", () => {
     describe("toObject()", () => {
       it("includes opts if they exist", () => {
         const sub = new Subscription(fakeDb, "test", { a: 1 });
-        expect(sub.toObject().opts).toMatchObject({ a: 1 });
+        expect(sub.toObject().args).toMatchObject({ a: 1 });
       });
 
       it("doesn't include opts if they don't exist", () => {
         const sub = new Subscription(fakeDb, "test");
-        expect(sub.toObject().opts).toBeUndefined();
+        expect(sub.toObject().args).toBeUndefined();
       });
     }); /* toObject() */
 
@@ -73,7 +73,7 @@ describe("Subscription", () => {
 
         const newSub = Subscription.fromHash(hash, fakeDb);
         expect(newSub.name).toBe(sub.name);
-        expect(newSub.opts).toEqual(sub.opts);
+        expect(newSub.args).toEqual(sub.args);
       });
     });
   });

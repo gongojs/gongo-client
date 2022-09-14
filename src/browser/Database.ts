@@ -8,7 +8,7 @@ const GongoIDB = require("./idb").default;
 const sync = require("./sync");
 
 import type { CollectionOptions, ServerDoc } from "./Collection";
-import type { SubscriptionObject, SubscriptionOptions } from "./Subscription";
+import type { SubscriptionObject, SubscriptionArguments } from "./Subscription";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Class = { new (...args: any[]): any };
@@ -199,8 +199,8 @@ class Database {
     return coll;
   }
 
-  subscribe(name: string, opts?: SubscriptionOptions) {
-    const sub = new Subscription(this, name, opts);
+  subscribe(name: string, args?: SubscriptionArguments) {
+    const sub = new Subscription(this, name, args);
     const hash = sub.hash();
 
     const existing = this.subscriptions.get(hash);
@@ -257,7 +257,7 @@ class Database {
         const results = pubRes.results;
         if (!results) return;
 
-        const hash = Subscription.toHash(subReq.name, subReq.opts);
+        const hash = Subscription.toHash(subReq.name, subReq.args);
         const sub = this.subscriptions.get(hash);
         if (!sub) {
           console.error(
@@ -311,10 +311,10 @@ class Database {
     if (subStore && subStore.subscriptions) {
       const subscriptions = subStore.subscriptions as Array<SubscriptionObject>;
       for (const subObj of subscriptions) {
-        const hash = Subscription.toHash(subObj.name, subObj.opts);
+        const hash = Subscription.toHash(subObj.name, subObj.args);
         let sub = this.subscriptions.get(hash);
         if (!sub) {
-          sub = new Subscription(this, subObj.name, subObj.opts);
+          sub = new Subscription(this, subObj.name, subObj.args);
           sub.active = false;
           if (subObj.updatedAt) sub.updatedAt = subObj.updatedAt;
           this.subscriptions.set(hash, sub);

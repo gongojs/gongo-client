@@ -279,12 +279,12 @@ describe("Database", () => {
         expect(db.subscribe("test")).toBe(sub);
       });
 
-      it("stores sub opts", () => {
+      it("stores sub args", () => {
         const db = new Database(dbOpts);
-        const opts = { a: 1 };
-        const sub = db.subscribe("test", opts);
+        const args = { a: 1 };
+        const sub = db.subscribe("test", args);
 
-        expect(sub.opts).toEqual(opts);
+        expect(sub.args).toEqual(args);
       });
 
       it("marks an matching existing inactive sub as active", () => {

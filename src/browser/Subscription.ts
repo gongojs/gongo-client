@@ -1,36 +1,36 @@
 import type Database from "./Database";
 
-export type SubscriptionOptions = Record<string, unknown>;
+export type SubscriptionArguments = Record<string, unknown>;
 
 export type UpdatedAt = Record<string, number>;
 
 export interface SubscriptionObject {
   name: string;
-  opts?: SubscriptionOptions;
+  args?: SubscriptionArguments;
   updatedAt: UpdatedAt;
 }
 
 export default class Subscription {
   db: Database;
   name: string;
-  opts?: SubscriptionOptions;
+  args?: SubscriptionArguments;
   active: boolean;
   _hash: string;
   updatedAt: UpdatedAt;
 
-  constructor(db: Database, name: string, opts?: SubscriptionOptions) {
+  constructor(db: Database, name: string, args?: SubscriptionArguments) {
     this.db = db;
     this.name = name;
-    this.opts = opts;
+    this.args = args;
     this.active = true;
     this.updatedAt = {};
-    this._hash = Subscription.toHash(this.name, this.opts);
+    this._hash = Subscription.toHash(this.name, this.args);
   }
 
   toObject() {
     // return Object.assign({}, this);
     const obj: Partial<SubscriptionObject> = { name: this.name };
-    if (this.opts) obj.opts = this.opts;
+    if (this.args) obj.args = this.args;
     if (this.updatedAt) obj.updatedAt = this.updatedAt;
     return obj as SubscriptionObject;
   }
@@ -38,11 +38,11 @@ export default class Subscription {
   hash() {
     if (this._hash) return this._hash;
 
-    return (this._hash = Subscription.toHash(this.name, this.opts));
+    return (this._hash = Subscription.toHash(this.name, this.args));
   }
 
-  static toHash(name: string, opts?: SubscriptionOptions) {
-    const parts: [string, SubscriptionOptions?] = [name];
+  static toHash(name: string, opts?: SubscriptionArguments) {
+    const parts: [string, SubscriptionArguments?] = [name];
     if (opts) parts.push(opts);
     return JSON.stringify(parts);
   }
