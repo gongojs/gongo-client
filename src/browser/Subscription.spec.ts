@@ -9,14 +9,32 @@ describe("Subscription", () => {
     describe("constructor()", () => {}); /* constructor() */
 
     describe("toObject()", () => {
-      it("includes opts if they exist", () => {
+      it("includes args if they exist", () => {
         const sub = new Subscription(fakeDb, "test", { a: 1 });
         expect(sub.toObject().args).toMatchObject({ a: 1 });
       });
 
-      it("doesn't include opts if they don't exist", () => {
+      it("doesn't include args if they don't exist", () => {
         const sub = new Subscription(fakeDb, "test");
         expect(sub.toObject().args).toBeUndefined();
+      });
+
+      it("includes opts if they exist", () => {
+        const sub = new Subscription(
+          fakeDb,
+          "test",
+          {},
+          { minInterval: 1, maxInterval: 2 }
+        );
+        expect(sub.toObject().opts).toMatchObject({
+          minInterval: 1,
+          maxInterval: 2,
+        });
+      });
+
+      it("doesn't include opts if they don't exist", () => {
+        const sub = new Subscription(fakeDb, "test");
+        expect(sub.toObject().opts).toBeUndefined();
       });
     }); /* toObject() */
 
