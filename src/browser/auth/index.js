@@ -110,6 +110,12 @@ class GongoAuth {
     const s = this.accounts.findOne({ name });
     if (!s) throw new Error("No such service: " + name);
 
+    if (s.type === "server") {
+      // eslint-disable-next-line no-undef
+      location.href = "/api/gongoAuth?service=" + name + "&auth=1";
+      return;
+    }
+
     const url =
       s.oauth2.authorize_url +
       "?client_id=" +
