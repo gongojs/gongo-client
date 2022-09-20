@@ -112,7 +112,11 @@ class GongoAuth {
 
     if (s.type === "server") {
       // eslint-disable-next-line no-undef
-      location.href = "/api/gongoAuth?service=" + name + "&auth=1";
+      location.href =
+        "/api/gongoAuth?service=" +
+        name +
+        "&auth=1&state=" +
+        encodeURIComponent(JSON.stringify(state));
       return;
     }
 
