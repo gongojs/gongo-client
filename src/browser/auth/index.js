@@ -1,6 +1,7 @@
 const utils = require("../utils");
 const debug = utils.debug.extend("auth");
 const openCenteredPopup = require("./popup").default;
+const ARSON = require("arson");
 
 class GongoAuth {
   constructor(db) {
@@ -110,6 +111,7 @@ class GongoAuth {
     const s = this.accounts.findOne({ name });
     if (!s) throw new Error("No such service: " + name);
 
+    let url, expectedOrigin;
     if (s.type === "server") {
       // eslint-disable-next-line no-undef
       location.href =
@@ -118,36 +120,62 @@ class GongoAuth {
         "&auth=1&state=" +
         encodeURIComponent(JSON.stringify(state));
       return;
+    } else if (s.type === "getServiceLoginUrl") {
+      // Until we have support for multiple call URLs
+      // let url = await this.db.call("getServiceLoginUrl", { service: name });
+      const pollUrl = this.db.transport.url.replace(/Poll/, "Auth?poll=1");
+      const request = {
+        $gongo: 2,
+        auth: this.authInfoToSend(),
+        calls: [["getServiceLoginUrl", { service: name }]],
+      };
+      const response = await fetch(pollUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: ARSON.encode(request),
+      });
+      const text = await response.text();
+      const pollResult = ARSON.decode(text);
+      const result = pollResult.calls[0];
+      url = result.$result;
+      expectedOrigin = s.redirect_uri.match(
+        /(https?:\/\/.*?)\/(:[0-9]+){0,1}/
+      )[1];
+    } else {
+      url =
+        s.oauth2.authorize_url +
+        "?client_id=" +
+        s.oauth2.client_id +
+        "&redirect_uri=" +
+        s.oauth2.redirect_uri +
+        "&scope=" +
+        s.oauth2.scope +
+        "&response_type=" +
+        s.oauth2.response_type +
+        "&state=" +
+        encodeURIComponent(JSON.stringify(state));
+      expectedOrigin = s.oauth2.redirect_uri.match(
+        /(https?:\/\/.*?)\/(:[0-9]+){0,1}/
+      )[1];
     }
 
-    const url =
-      s.oauth2.authorize_url +
-      "?client_id=" +
-      s.oauth2.client_id +
-      "&redirect_uri=" +
-      s.oauth2.redirect_uri +
-      "&scope=" +
-      s.oauth2.scope +
-      "&response_type=" +
-      s.oauth2.response_type +
-      "&state=" +
-      encodeURIComponent(JSON.stringify(state));
-
     debug(`loginWithService(${name}) on ${url}`);
-
-    const expectedOrigin = s.oauth2.redirect_uri.match(
-      /(https?:\/\/.*?)\/(:[0-9]+){0,1}/
-    )[1];
 
     // default width, height from meteor's oauth/oauth_browser.js
     var win = openCenteredPopup(url, 651, 331);
 
     const receive = (event) => {
-      if (event.origin !== expectedOrigin) return;
+      if (event.origin !== expectedOrigin)
+        throw new Error(
+          `Origin mismatch, expected: "${expectedOrigin}", received: "${event.origin}"`
+        );
 
       const data = event.data;
 
-      if (!data.userId) return;
+      if (!data.userId) {
+        // Fail silently, it's probably a postMessage from somewhere else.
+        return;
+      }
 
       window.removeEventListener("message", receive);
       //console.log(data);
