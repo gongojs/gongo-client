@@ -32,6 +32,7 @@ export default class Cursor<DocType extends Document> {
   _queryResults: null | Array<WithId<DocType>>;
   _query: Query;
   _sortFunc?: SortFunction<DocType>;
+  _sortParams: [unknown, unknown] = [null, null];
   _needsCount?: boolean;
   _skip?: number;
   _limit?: number;
@@ -67,7 +68,13 @@ export default class Cursor<DocType extends Document> {
   }
 
   slug() {
-    return this.collection.name + "#" + JSON.stringify(this._query);
+    return (
+      this.collection.name +
+      "#" +
+      JSON.stringify(this._query) +
+      ":" +
+      JSON.stringify(this._sortParams)
+    );
   }
 
   _resultsSync() {
@@ -138,6 +145,7 @@ export default class Cursor<DocType extends Document> {
   ) {
     if (typeof keyOrList === "string") {
       const key = keyOrList;
+      this._sortParams = [keyOrList, direction];
 
       if (direction === "asc" || direction === "ascending" || direction === 1)
         this._sortFunc = (a, b) =>
