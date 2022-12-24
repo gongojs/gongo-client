@@ -16,7 +16,11 @@ class GongoAuth {
     if (db.extensions.transport)
       throw new Error("Should load auth extension before transport extension!");
 
-    db.idb.on("collectionsPopulated", () => this._initializeFromDb());
+    // db.idb.on("collectionsPopulated", () =>
+    //   this._initializeFromDb("collectionsPopulated")
+    // );
+    const cs = db.gongoStore.watch();
+    cs.on("populateEnd", () => this._initializeFromDb("populateEnd"));
   }
 
   on(event, callback) {
@@ -35,8 +39,8 @@ class GongoAuth {
     }
   }
 
-  _initializeFromDb() {
-    debug("initializefromDB on collectionsPopulated hook");
+  _initializeFromDb(hookName) {
+    debug(`initializefromDB on ${hookName} hook`);
     const saved = this.db.gongoStore.findOne(this._id);
 
     if (saved) {
