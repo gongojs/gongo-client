@@ -6,7 +6,7 @@ const testEnv =
 
 if (!testEnv)
   console.log(
-    "Gongo uses `debug` for logging.  Set localStorage.debug = 'gongo:*'"
+    "Gongo uses `debug` for logging.  Set localStorage.debug = 'gongo,gongo:*'"
   );
 
 class Log {
