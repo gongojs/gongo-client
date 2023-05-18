@@ -544,7 +544,6 @@ describe("Database", () => {
       class AuthExtension {}
       db.extend("auth", AuthExtension, { a: 1 });
 
-      // @ts-expect-error: still need to figure out right TS way to do this.
       expect(db.auth).toBeInstanceOf(AuthExtension);
     });
   });
