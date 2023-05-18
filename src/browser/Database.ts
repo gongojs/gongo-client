@@ -10,6 +10,7 @@ const sync = require("./sync");
 
 import type { CollectionOptions, ServerDoc } from "./Collection";
 import type { SubscriptionObject, SubscriptionArguments } from "./Subscription";
+import type GongoAuth from "./auth";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Class = { new (...args: any[]): any };
@@ -104,6 +105,7 @@ function stringifyObjectIDsOld(entry: Record<string, unknown>) {
 
 class Database {
   name: string;
+  auth?: InstanceType<typeof GongoAuth>;
   collections: Map<string, Collection<Document>>;
   subscriptions: Map<string, Subscription>;
   extensions: Record<string, unknown>;
