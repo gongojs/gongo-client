@@ -237,8 +237,8 @@ class Database {
     let toRun: Array<Subscription> = [];
 
     // Subscriptions with no opts ( {min,max}Interval )
-    for (const [_key, sub] of this.subscriptions) {
-      if (sub.active && !sub.opts) toRun.push(sub);
+    for (const [, sub] of this.subscriptions) {
+      if (sub.active && !sub.opts?.minInterval) toRun.push(sub);
     }
 
     // From scheduler
@@ -247,18 +247,22 @@ class Database {
     return toRun.map((sub) => sub.toObject());
   }
 
-  async runSubscriptions() {
-    const subcriptions = this.getSubscriptionsToRun();
-    if (!subcriptions.length) return;
+  async runSubscriptions(
+    subscriptions?: SubscriptionObject[],
+    immediate = false
+  ) {
+    if (!subscriptions) subscriptions = this.getSubscriptionsToRun();
+
+    if (!subscriptions.length) return;
 
     await Promise.all(
-      subcriptions.map(async (subReq) => {
+      subscriptions.map(async (subReq) => {
         let callResult;
         try {
           callResult = await this.call(
             "subscribe",
             subReq as unknown as CallOptions,
-            false
+            immediate
           );
         } catch (error) {
           if (error instanceof Error) {
@@ -323,6 +327,23 @@ class Database {
 
           sub.updatedAt[collName] = collUpdatedAt;
         }
+
+        /*
+         * If the subscription has a sort, we need to track the value of the
+         * last sorted field, so it can be used for loadMore()
+         */
+        const sortKey = sub.opts?.sort && sub.opts.sort[0];
+        if (
+          sortKey &&
+          sub.opts?.limit &&
+          results.length > 0 &&
+          results[0].entries.length > 0
+        ) {
+          sub.lastSortedValue =
+            results[0].entries.length === sub.opts.limit
+              ? results[0].entries[results[0].entries.length - 1][sortKey]
+              : "__END__";
+        }
       })
     );
 
@@ -330,21 +351,29 @@ class Database {
       _id: "subscriptions",
       subscriptions: this.getSubscriptions(true),
     });
+
+    // console.log("saved", this.getSubscriptions(true));
   }
 
   populateSubscriptions() {
     const subStore = this.gongoStore.findOne("subscriptions");
     if (subStore && subStore.subscriptions) {
       const subscriptions = subStore.subscriptions as Array<SubscriptionObject>;
+      // console.log("loaded", subscriptions);
+
       for (const subObj of subscriptions) {
         const hash = Subscription.toHash(subObj.name, subObj.args);
         let sub = this.subscriptions.get(hash);
         if (!sub) {
           sub = new Subscription(this, subObj.name, subObj.args);
           sub.active = false;
-          if (subObj.updatedAt) sub.updatedAt = subObj.updatedAt;
-          this.subscriptions.set(hash, sub);
         }
+
+        if (subObj.updatedAt) sub.updatedAt = subObj.updatedAt;
+        if (subObj.lastSortedValue)
+          sub.lastSortedValue = subObj.lastSortedValue;
+
+        this.subscriptions.set(hash, sub);
         sub.updatedAt = subObj.updatedAt;
       }
     }

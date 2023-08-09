@@ -5,8 +5,12 @@ export type SubscriptionArguments = Record<string, unknown>;
 export type UpdatedAt = Record<string, number>;
 
 export interface SubscriptionOptions {
-  minInterval: number;
-  maxInterval: number;
+  // transport scheduling
+  minInterval?: number;
+  maxInterval?: number;
+  // sort and pagination
+  sort?: [string, string];
+  limit?: number;
 }
 
 export interface SubscriptionObject {
@@ -14,6 +18,7 @@ export interface SubscriptionObject {
   args?: SubscriptionArguments;
   opts?: SubscriptionOptions;
   updatedAt: UpdatedAt;
+  lastSortedValue?: unknown;
 }
 
 export default class Subscription {
@@ -25,6 +30,7 @@ export default class Subscription {
   _hash: string;
   updatedAt: UpdatedAt;
   lastCalled: number;
+  lastSortedValue?: unknown;
 
   constructor(
     db: Database,
@@ -46,9 +52,27 @@ export default class Subscription {
     // return Object.assign({}, this);
     const obj: Partial<SubscriptionObject> = { name: this.name };
     if (this.args) obj.args = this.args;
-    // if (this.opts) obj.opts = this.opts;  no need to save this.
+
+    // Previously we didn't save this when is was just {min,max}Interval
+    // but now we do, because of sort and limit.
+    if (this.opts) obj.opts = this.opts;
+
     if (this.updatedAt) obj.updatedAt = this.updatedAt;
+    if (this.lastSortedValue) obj.lastSortedValue = this.lastSortedValue;
+
     return obj as SubscriptionObject;
+  }
+
+  loadMore() {
+    if (!this.lastSortedValue) {
+      throw new Error("Can't loadMore() without lastSortedValue");
+    }
+
+    const subObj = this.toObject();
+    // @ts-expect-error: later
+    delete subObj.updatedAt;
+
+    this.db.runSubscriptions([subObj], true /*immediate*/);
   }
 
   hash() {
