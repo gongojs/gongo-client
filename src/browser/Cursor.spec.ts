@@ -56,7 +56,9 @@ describe("Cursor", () => {
       const coll = { name: "test" } as unknown as Collection<Document>;
       const query = { a: 1 };
       const cursor = new Cursor(coll, query);
-      expect(cursor.slug()).toBe(`${coll.name}#${JSON.stringify(query)}`);
+      expect(cursor.slug()).toBe(
+        `${coll.name}#${JSON.stringify(query)}:[null,null]`
+      );
     });
   });
 
