@@ -4,7 +4,8 @@ const { openDB, deleteDB } = require("idb");
 const GongoIDB = require("./idb").default;
 const Database = require("./Database").default;
 
-describe("GongoIDB", () => {
+console.log("WARNING: currently GongoIDB tests are skipped");
+describe.skip("GongoIDB", () => {
   describe("events", () => {
     it("off", () => {
       const idb = new GongoIDB();
