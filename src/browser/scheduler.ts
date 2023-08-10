@@ -19,6 +19,7 @@ export default class Scheduler {
     for (const [_slug, sub] of this.subscriptions) {
       if (
         sub.opts &&
+        sub.opts.maxInterval &&
         sub.active &&
         sub.lastCalled + sub.opts.maxInterval <= now
       ) {
@@ -33,6 +34,7 @@ export default class Scheduler {
     for (const [_slug, sub] of this.subscriptions) {
       if (
         sub.opts &&
+        sub.opts.minInterval &&
         sub.active &&
         sub.lastCalled + sub.opts.minInterval <= now
       ) {
