@@ -78,16 +78,19 @@ export default class Subscription {
     return obj as SubscriptionObject;
   }
 
-  loadMore() {
+  async loadMore() {
     if (!this.lastSortedValue) {
       throw new Error("Can't loadMore() without lastSortedValue");
+    } else if (this.lastSortedValue === "__END__") {
+      console.log("Skipping loadMore() because lastSortedValue is __END__");
+      return;
     }
 
     const subObj = this.toObject();
     // @ts-expect-error: later
     delete subObj.updatedAt;
 
-    this.db.runSubscriptions([subObj], true /*immediate*/);
+    return await this.db.runSubscriptions([subObj], true /*immediate*/);
   }
 
   slug() {
