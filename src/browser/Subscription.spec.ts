@@ -40,14 +40,14 @@ describe("Subscription", () => {
       */
     }); /* toObject() */
 
-    describe("hash()", () => {
+    describe("slug()", () => {
       it("returns cached result from 2nd call onwards", () => {
         const sub = new Subscription(fakeDb, "test");
         // @ts-expect-error: for test purposes
-        const obj = (sub._hash = {});
-        expect(sub.hash()).toBe(obj);
+        const obj = (sub._slug = {});
+        expect(sub.slug()).toBe(obj);
       });
-    }); /* hash() */
+    }); /* slug() */
 
     describe("stop()", () => {
       it("de-activates sub", () => {
@@ -66,7 +66,7 @@ describe("Subscription", () => {
         } as unknown as Database;
 
         const sub = new Subscription(db, "test");
-        db.subscriptions.set(sub.hash(), sub);
+        db.subscriptions.set(sub.slug(), sub);
 
         sub.delete();
         expect(db.getSubscriptions).toHaveBeenCalled();
@@ -79,19 +79,19 @@ describe("Subscription", () => {
   });
 
   describe("Static Functions", () => {
-    describe("toHash", () => {
-      it("hashes name and opts", () => {
-        expect(Subscription.toHash("test")).toBe('["test"]');
-        expect(Subscription.toHash("test", { a: 1 })).toBe('["test",{"a":1}]');
+    describe("toSlug", () => {
+      it("slugs name and opts", () => {
+        expect(Subscription.toSlug("test")).toBe('["test"]');
+        expect(Subscription.toSlug("test", { a: 1 })).toBe('["test",{"a":1}]');
       });
     });
 
-    describe("fromHash()", () => {
-      it("creates a new sub from hash", () => {
+    describe("fromSlug()", () => {
+      it("creates a new sub from slug", () => {
         const sub = new Subscription(fakeDb, "test", { a: 1 });
-        const hash = sub.hash();
+        const slug = sub.slug();
 
-        const newSub = Subscription.fromHash(hash, fakeDb);
+        const newSub = Subscription.fromSlug(slug, fakeDb);
         expect(newSub.name).toBe(sub.name);
         expect(newSub.args).toEqual(sub.args);
       });

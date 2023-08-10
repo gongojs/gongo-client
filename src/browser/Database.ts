@@ -210,18 +210,21 @@ class Database {
     opts?: SubscriptionOptions
   ) {
     const sub = new Subscription(this, name, args, opts);
-    const hash = sub.hash();
+    const slug = sub.slug();
 
-    const existing = this.subscriptions.get(hash);
+    const existing = this.subscriptions.get(slug);
     if (existing) {
       if (existing.active === false) {
         existing.active = true;
         this.exec("subscriptionsChanged");
       }
+      // This may include extra opts we want to update but
+      // that don't otherwise affect data (which form slug)
+      existing.opts = sub.opts;
       return existing;
     }
 
-    this.subscriptions.set(hash, sub);
+    this.subscriptions.set(slug, sub);
     this.exec("subscriptionsChanged");
 
     return sub;
@@ -287,8 +290,8 @@ class Database {
         const results = pubRes.results;
         if (!results) return;
 
-        const hash = Subscription.toHash(subReq.name, subReq.args);
-        const sub = this.subscriptions.get(hash);
+        const slug = Subscription.toSlug(subReq.name, subReq.args, subReq.opts);
+        const sub = this.subscriptions.get(slug);
         if (!sub) {
           console.error(
             "Internal error, subscription disappeared: " +
@@ -362,10 +365,10 @@ class Database {
       // console.log("loaded", subscriptions);
 
       for (const subObj of subscriptions) {
-        const hash = Subscription.toHash(subObj.name, subObj.args);
-        let sub = this.subscriptions.get(hash);
+        const slug = Subscription.toSlug(subObj.name, subObj.args, subObj.opts);
+        let sub = this.subscriptions.get(slug);
         if (!sub) {
-          sub = new Subscription(this, subObj.name, subObj.args);
+          sub = new Subscription(this, subObj.name, subObj.args, subObj.opts);
           sub.active = false;
         }
 
@@ -373,7 +376,7 @@ class Database {
         if (subObj.lastSortedValue)
           sub.lastSortedValue = subObj.lastSortedValue;
 
-        this.subscriptions.set(hash, sub);
+        this.subscriptions.set(slug, sub);
         sub.updatedAt = subObj.updatedAt;
       }
     }
