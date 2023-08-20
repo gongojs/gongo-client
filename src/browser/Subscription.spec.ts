@@ -81,8 +81,10 @@ describe("Subscription", () => {
   describe("Static Functions", () => {
     describe("toSlug", () => {
       it("slugs name and opts", () => {
-        expect(Subscription.toSlug("test")).toBe('["test"]');
-        expect(Subscription.toSlug("test", { a: 1 })).toBe('["test",{"a":1}]');
+        expect(Subscription.toSlug("test")).toBe('["test",null,{}]');
+        expect(Subscription.toSlug("test", { a: 1 })).toBe(
+          '["test",{"a":1},{}]'
+        );
       });
     });
 

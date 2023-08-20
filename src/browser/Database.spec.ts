@@ -330,7 +330,7 @@ describe("Database", () => {
         });
 
         db.populateSubscriptions();
-        const sub = db.subscriptions.get('["test"]');
+        const sub = db.subscriptions.get('["test",null,{}]');
         expect(sub).toBeTruthy();
         // @ts-expect-error: guarded above
         expect(sub.updatedAt).toEqual({ test: now });
@@ -354,7 +354,7 @@ describe("Database", () => {
         });
 
         db.populateSubscriptions();
-        const sub = db.subscriptions.get('["test"]');
+        const sub = db.subscriptions.get('["test",null,{}]');
         expect(sub).toBeTruthy();
         // @ts-expect-error: guarded above
         expect(sub.active).toBe(false);
@@ -531,6 +531,15 @@ describe("Database", () => {
       return expect(promise).rejects.toBe("d'oh");
     });
     */
+  });
+
+  describe("runSubscriptions", () => {
+    describe("sorts", () => {
+      it("works", () => {
+        const db = new Database();
+        db.subscribe("test", {}, { sort: ["date", "asc"] });
+      });
+    });
   });
 
   describe("other", () => {
