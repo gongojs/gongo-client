@@ -230,9 +230,10 @@ class Database {
     return sub;
   }
 
-  getSubscriptions(includeInactive = false) {
+  getSubscriptions(includeInactive = false, includePersistFalse = false) {
     return Array.from(this.subscriptions.values())
       .filter((sub) => includeInactive || sub.active !== false)
+      .filter((sub) => includePersistFalse || sub.opts?.persist !== false)
       .map((sub) => sub.toObject());
   }
 
@@ -350,11 +351,7 @@ class Database {
       })
     );
 
-    this.gongoStore._insertOrReplaceOne({
-      _id: "subscriptions",
-      subscriptions: this.getSubscriptions(true),
-    });
-
+    Subscription.updatePersistedSubscriptions(this);
     // console.log("saved", this.getSubscriptions(true));
   }
 

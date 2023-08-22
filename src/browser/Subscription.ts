@@ -11,6 +11,8 @@ export interface SubscriptionOptions {
   // sort and pagination
   sort?: [string, string];
   limit?: number;
+  // persistance
+  persist?: boolean;
 }
 
 export interface SubscriptionObject {
@@ -46,6 +48,19 @@ export default class Subscription {
     this.updatedAt = {};
     this.lastCalled = 0;
     this._slug = Subscription.toSlug(this.name, this.args, this.opts);
+  }
+
+  static updatePersistedSubscriptions(db: Database) {
+    const subscriptions = db.getSubscriptions(true);
+
+    db.gongoStore._insertOrReplaceOne({
+      _id: "subscriptions",
+      subscriptions,
+    });
+  }
+
+  updatePersistedSubscriptions() {
+    Subscription.updatePersistedSubscriptions(this.db);
   }
 
   static optsThatAffectData(opts?: SubscriptionOptions) {
@@ -120,9 +135,6 @@ export default class Subscription {
     this.db.subscriptions.delete(this.slug());
     //this.db.exec('subscriptionsChanged');
 
-    this.db.gongoStore._insertOrReplaceOne({
-      _id: "subscriptions",
-      subscriptions: this.db.getSubscriptions(true),
-    });
+    this.updatePersistedSubscriptions();
   }
 }

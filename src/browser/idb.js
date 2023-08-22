@@ -214,7 +214,19 @@ class GongoIDB {
       debug("Begin populating from IndexedDB of " + col.name);
       col.csExec("populateStart");
 
-      const docs = await idb.getAll(col.name);
+      let docs;
+      try {
+        docs = await idb.getAll(col.name);
+      } catch (error) {
+        // Failed to execute 'transaction' on 'IDBDatabase': One of the specified object stores was not found.
+        if (error.code === 8) {
+          col.populated = true;
+          debug("Nothing to populate from IndexedDB of " + col.name);
+          col.csExec("populateEnd");
+          continue;
+        } else throw error;
+      }
+
       docs.forEach((doc) => {
         col.documents.set(doc._id, doc);
       });
