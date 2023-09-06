@@ -341,7 +341,15 @@ class Database {
           sortKey &&
           sub.opts?.limit &&
           results.length > 0 &&
-          results[0].entries.length > 0
+          results[0].entries.length > 0 &&
+          /*
+           * 1) Always set lastSortedValue if it doesn't previously exist
+           * 2) If it does exist, only update it on loadMore()'s and NOT
+           *    on a normal poll (i.e. when updatedAt specified); that's
+           *    because a normal poll won't match the sub.opts.limit but
+           *    of course, isn't the actual end of the sorted data.
+           */
+          (!sub.lastSortedValue || (sub.lastSortedValue && !subReq.updatedAt))
         ) {
           sub.lastSortedValue =
             results[0].entries.length === sub.opts.limit
