@@ -7,7 +7,14 @@ const sync = {
   // TODO, move together
   objectifyStringIDs(entry) {
     if (entry.__ObjectIDs)
-      for (let prop of entry.__ObjectIDs) entry[prop] = ObjectID(entry[prop]);
+      for (let prop of entry.__ObjectIDs) {
+        if (prop.endsWith("[]")) {
+          prop = prop.substr(0, prop.length - 2);
+          entry[prop] = entry[prop].map((id) => ObjectID(id));
+        } else {
+          entry[prop] = ObjectID(entry[prop]);
+        }
+      }
     delete entry.__ObjectIDs;
   },
 

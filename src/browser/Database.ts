@@ -73,12 +73,18 @@ interface PublicationResponse {
 // See also objectifyStringIDs in sync.js
 // TODO, move together
 function stringifyObjectIDs(entry: Record<string, unknown>) {
+  const oids = (entry.__ObjectIDs || (entry.__ObjectIDs = [])) as Array<string>;
   for (const [key, value] of Object.entries(entry)) {
     if (value instanceof ObjectID) {
-      const oids = (entry.__ObjectIDs ||
-        (entry.__ObjectIDs = [])) as Array<string>;
       if (!oids.includes(key)) oids.push(key);
       entry[key] = (entry[key] as ObjectID).toHexString();
+    } else if (
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value[0] instanceof ObjectID
+    ) {
+      if (!oids.includes(key + "[]")) oids.push(key + "[]");
+      entry[key] = value.map((v) => (v as ObjectID).toHexString());
     }
   }
 
