@@ -2,7 +2,7 @@ import sift from "sift";
 
 import { debounce, debug as gongoDebug } from "./utils";
 import type Collection from "./Collection";
-import type { Document, Query, WithId } from "./Collection";
+import type { GongoClientDocument, Query, WithId } from "./Collection";
 import type ChangeStream from "./ChangeStream";
 import type { ChangeStreamEvent } from "./ChangeStream";
 
@@ -18,12 +18,12 @@ export interface WatchOptions {
   debounce?: number | false;
 }
 
-export type SortFunction<DocType extends Document> = (
+export type SortFunction<DocType extends GongoClientDocument> = (
   a: WithId<DocType>,
   b: WithId<DocType>
 ) => number;
 
-export default class Cursor<DocType extends Document> {
+export default class Cursor<DocType extends GongoClientDocument> {
   collection: Collection<DocType>;
   changeStreams: Array<ChangeStream<DocType>>;
   query: ReturnType<typeof sift>;

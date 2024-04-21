@@ -1,5 +1,5 @@
 import type Collection from "./Collection";
-import type { Document } from "./Collection";
+import type { GongoClientDocument } from "./Collection";
 
 export interface ChangeStreamEvent {
   [key: string]: unknown;
@@ -10,7 +10,7 @@ export interface ChangeStreamEvent {
 
 export type ChangeStreamCallback = (change?: ChangeStreamEvent) => void;
 
-export default class ChangeStream<DocType extends Document> {
+export default class ChangeStream<DocType extends GongoClientDocument> {
   collection?: Collection<DocType>;
   callbacks: Record<string, Array<ChangeStreamCallback>>;
   _isClosed = false;

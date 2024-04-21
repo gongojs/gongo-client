@@ -1,6 +1,6 @@
 import Collection from "./Collection";
 import Cursor from "./Cursor";
-import type { Document } from "./Collection";
+import type { GongoClientDocument } from "./Collection";
 import type Database from "./Database";
 import type ChangeStream from "./ChangeStream";
 import { jest } from "@jest/globals";
@@ -20,7 +20,7 @@ describe("Cursor", () => {
 
   describe("constructor", () => {
     it("instantiates", () => {
-      const collection = {} as unknown as Collection<Document>;
+      const collection = {} as unknown as Collection<GongoClientDocument>;
       const query = { a: 1 };
       const options = {};
       const cursor = new Cursor(collection, query, options);
@@ -32,7 +32,7 @@ describe("Cursor", () => {
     it("modifies query on options.includePendingDeletes", () => {
       let cursor;
 
-      cursor = new Cursor({} as unknown as Collection<Document>, {
+      cursor = new Cursor({} as unknown as Collection<GongoClientDocument>, {
         type: "banana",
       });
       expect(cursor._query).toEqual({
@@ -41,7 +41,7 @@ describe("Cursor", () => {
       });
 
       cursor = new Cursor(
-        {} as unknown as Collection<Document>,
+        {} as unknown as Collection<GongoClientDocument>,
         { type: "banana" },
         { includePendingDeletes: true }
       );
@@ -53,7 +53,9 @@ describe("Cursor", () => {
 
   describe("slug", () => {
     it("returns name#queryJSON", () => {
-      const coll = { name: "test" } as unknown as Collection<Document>;
+      const coll = {
+        name: "test",
+      } as unknown as Collection<GongoClientDocument>;
       const query = { a: 1 };
       const cursor = new Cursor(coll, query);
       expect(cursor.slug()).toBe(
@@ -64,7 +66,9 @@ describe("Cursor", () => {
 
   describe("_resultsSync()", () => {
     it("should return cache", () => {
-      const coll = { name: "test" } as unknown as Collection<Document>;
+      const coll = {
+        name: "test",
+      } as unknown as Collection<GongoClientDocument>;
       const cache = {};
       const cursor = new Cursor(coll);
       // @ts-expect-error: stub
@@ -79,7 +83,7 @@ describe("Cursor", () => {
           [2, 2],
           [3, 3],
         ],
-      } as unknown as Collection<Document>;
+      } as unknown as Collection<GongoClientDocument>;
       const cursor = new Cursor(coll).limit(2);
       const results = cursor._resultsSync();
       expect(results.length).toBe(2);
@@ -93,7 +97,7 @@ describe("Cursor", () => {
         [2, 2],
         [3, 3],
       ],
-    } as unknown as Collection<Document>;
+    } as unknown as Collection<GongoClientDocument>;
 
     it("returns count of matching documents", () => {
       const cursor = new Cursor(coll);
@@ -155,7 +159,7 @@ describe("Cursor", () => {
   });
 
   describe("sort", () => {
-    const coll = {} as unknown as Collection<Document>;
+    const coll = {} as unknown as Collection<GongoClientDocument>;
 
     it("works for strKey asc", () => {
       const cursor = new Cursor(coll);
@@ -314,9 +318,13 @@ describe("Cursor", () => {
       it("closes all cursor's changeStreams", () => {
         const cursor = new Cursor({
           name: "test",
-        } as unknown as Collection<Document>);
-        const cs1 = { close: jest.fn() } as unknown as ChangeStream<Document>;
-        const cs2 = { close: jest.fn() } as unknown as ChangeStream<Document>;
+        } as unknown as Collection<GongoClientDocument>);
+        const cs1 = {
+          close: jest.fn(),
+        } as unknown as ChangeStream<GongoClientDocument>;
+        const cs2 = {
+          close: jest.fn(),
+        } as unknown as ChangeStream<GongoClientDocument>;
         cursor.changeStreams.push(cs1);
         cursor.changeStreams.push(cs2);
         cursor.unwatch();

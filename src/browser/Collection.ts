@@ -11,6 +11,7 @@ import ObjectID from "bson-objectid";
 
 // https://github.com/mongodb/node-mongodb-native/blob/b67af3cd/src/mongo_types.ts#L46 thanks Mongo team
 /** TypeScript Omit (Exclude to be specific) does not work for objects with an "any" indexed type, and breaks discriminated unions @public */
+/*
 export type EnhancedOmit<TRecordOrUnion, KeyUnion> =
   string extends keyof TRecordOrUnion
     ? TRecordOrUnion // TRecordOrUnion has indexed type e.g. { _id: string; [k: string]: any; } or it is "any"
@@ -18,6 +19,12 @@ export type EnhancedOmit<TRecordOrUnion, KeyUnion> =
     TRecordOrUnion extends any
     ? Pick<TRecordOrUnion, Exclude<keyof TRecordOrUnion, KeyUnion>> // discriminated unions
     : never;
+*/
+
+// Since TS 4.1, we can use the built-in Exclude
+export type EnhancedOmit<T, K extends PropertyKey> = {
+  [P in keyof T as Exclude<P, K>]: T[P];
+};
 
 export interface CollectionOptions {
   idType?: string;
@@ -25,21 +32,30 @@ export interface CollectionOptions {
 }
 
 // TODO, get ideas from mongodb interface?
-export interface Document {
+export interface GongoClientDocument {
   [key: string]: unknown;
   _id?: string;
   __ObjectIDs?: Array<string>;
   __updatedAt?: number;
   __pendingDelete?: boolean;
-  __pendingSince?: Date;
-  __pendingBase?: Document; // TODO, Omit<Document, "__updatedAt" | "__" etc
+  __pendingSince?: number;
+  __pendingBase?: GongoClientDocument; // TODO, Omit<GongoClientDocument, "__updatedAt" | "__" etc
   __pendingInsert?: boolean;
 }
 
-export type WithId<DocType extends Document> = EnhancedOmit<DocType, "_id"> & {
+export type WithId<DocType extends GongoClientDocument> = EnhancedOmit<
+  DocType,
+  "_id"
+> & {
   _id: string;
 };
-export type ServerDoc<DocType extends Document> = EnhancedOmit<
+export type OptionalId<DocType extends GongoClientDocument> = EnhancedOmit<
+  DocType,
+  "_id"
+> & {
+  _id?: string;
+};
+export type ServerDoc<DocType extends GongoClientDocument> = EnhancedOmit<
   DocType,
   "_id" | "__updatedAt"
 > & {
@@ -73,7 +89,7 @@ export interface UpdateFilter {
   $inc?: Record<string, unknown>;
 }
 
-export default class Collection<DocType extends Document> {
+export default class Collection<DocType extends GongoClientDocument> {
   db: Database;
   name: string;
   documents: Map<string, WithId<DocType>>;
@@ -97,7 +113,7 @@ export default class Collection<DocType extends Document> {
     this.populated = false;
   }
 
-  insertMissingId(doc: DocType) {
+  insertMissingId(doc: OptionalId<DocType>) {
     if (doc._id) return;
     else if (this.idType === "random") doc._id = Collection.randomId();
     else if (this.idType === "ObjectID") {
@@ -207,7 +223,7 @@ export default class Collection<DocType extends Document> {
    * @param  {object} document - document to insert
    * @return {object} document - the inserted document (with _id)
    */
-  insert(document: DocType) {
+  insert(document: OptionalId<DocType>) {
     const docToInsert = this.isLocalCollection
       ? {
           ...document,
