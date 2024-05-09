@@ -144,6 +144,7 @@ class Database {
 
     this.idb = new GongoIDB(this);
     this.idb.on("collectionsPopulated", () => this.populateSubscriptions());
+
     this.idb.on("collectionsPopulated", () => {
       // On reload, let's try all failed requests again.
       this.collections.forEach((collection) =>
@@ -383,7 +384,22 @@ class Database {
           sub.active = false;
         }
 
-        if (subObj.updatedAt) sub.updatedAt = subObj.updatedAt;
+        if (subObj.updatedAt) {
+          sub.updatedAt = subObj.updatedAt;
+
+          // Workaround for unfound bug where sometimes entire collection is missing
+          // but never retrieved again because of the subscription.
+          for (const collName in subObj.updatedAt) {
+            if (this.collections.get(collName)?.documents.size === 0) {
+              console.warn(
+                "Resetting updatedAt for missing col " + collName + " in sub",
+                sub
+              );
+              delete sub.updatedAt[collName];
+            }
+          }
+        }
+
         if (subObj.lastSortedValue)
           sub.lastSortedValue = subObj.lastSortedValue;
 

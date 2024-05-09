@@ -62,7 +62,11 @@ class HTTPTransport {
     };
 
     db.on("updatesFinished", () => this.poll("updatesFinished"));
-    db.on("subscriptionsChanged", () => this.poll("subscriptionsChanged"));
+    db.idb.once("collectionsPopulated", () =>
+      // Poll every time subscriptions are changed, but not before
+      // collections are populated.
+      db.on("subscriptionsChanged", () => this.poll("subscriptionsChanged"))
+    );
     db.idb.on("collectionsPopulated", () => this.poll("collectionsPopulated"));
 
     this.idleTimer = null;

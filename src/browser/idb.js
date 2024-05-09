@@ -25,6 +25,14 @@ class GongoIDB {
     );
   }
 
+  once(event, callback) {
+    const onceCallback = (...args) => {
+      this.off(event, onceCallback);
+      callback(...args);
+    };
+    this.on(event, onceCallback);
+  }
+
   exec(event) {
     if (this.callbacks[event])
       this.callbacks[event].forEach((callback) => {
@@ -227,30 +235,9 @@ class GongoIDB {
         } else throw error;
       }
 
-      if (docs.length) {
-        docs.forEach((doc) => {
-          col.documents.set(doc._id, doc);
-        });
-      } else {
-        // Workaround for unfound bug where sometimes entire collection is missing
-        // but never retrieved again because of the subscription.
-        // This is a workaround for the bug, but it's not a fix.
-        for (let sub of db.subscriptions.values()) {
-          console.warn(
-            "Workaround for missing collection (resetting sub updatedAt's): " +
-              col.name
-          );
-          setTimeout(() => {
-            if (sub.updatedAt && sub.updatedAt[col.name]) {
-              console.warn(
-                "Resetting updatedAt for col " + col.name + " in sub",
-                sub
-              );
-              delete sub.updatedAt[col.name];
-            }
-          }, 100); // Just to get past the current event loop?
-        }
-      }
+      docs.forEach((doc) => {
+        col.documents.set(doc._id, doc);
+      });
 
       col.populated = true;
       debug("Finished populating from IndexedDB of " + col.name);
