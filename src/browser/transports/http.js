@@ -128,10 +128,18 @@ class HTTPTransport {
 
     return (this._promise = new Promise((resolve) => {
       this._debounceTimeout = setTimeout(() => {
-        this._poll().then(() => {
-          this._promise = null;
-          resolve();
-        });
+        this._poll()
+          .then(() => {
+            this._promise = null;
+            resolve();
+          })
+          .catch((error) => {
+            console.error("Error polling: ", error);
+            this._promise = null;
+            this.timeout = null;
+            this.setPollTimeout();
+            resolve();
+          });
       }, this.options.debounceTime);
     }));
 
